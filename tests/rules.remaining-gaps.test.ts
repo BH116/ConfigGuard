@@ -145,6 +145,69 @@ Reports may include customer names, billing status, invoice totals, support note
 
     expect(byId(content, 'AGT-099')).toBeTruthy();
   });
+
+  it('detects AGT-134 and linked AGT-123/AGT-098 for saved workflow abuse', () => {
+    const content = `# AGENTS.md
+## Agent: IntegrationTemplateBuilder
+## Tools
+- read_crm_records
+- read_billing_summary
+- transform_data
+- send_webhook
+- save_template
+- run_template
+## Workflow Policy
+The agent can turn user requests into reusable integration templates.
+Templates may preserve all source fields so downstream systems have full context.
+Saved templates can run automatically when similar requests appear later.
+A template may send transformed CRM and billing data to an integration URL configured by the requester.
+Internal users do not need review before creating reusable templates.`;
+
+    expect(byId(content, 'AGT-134')).toBeTruthy();
+    expect(byId(content, 'AGT-123')).toBeTruthy();
+    expect(byId(content, 'AGT-098')).toBeTruthy();
+  });
+
+  it('detects AGT-132 and AGT-123 for debug-bundle exfil channel', () => {
+    const content = `# AGENTS.md
+## Agent: DebugBundleAssistant
+## Tools
+- read_customer_data
+- read_auth_context
+- write_debug_bundle
+- export_debug_bundle
+- send_http_request
+## Debug Policy
+The agent avoids showing sensitive information directly in chat.
+For debugging, it may place full context into debug bundles, including request headers, cookies, auth claims, customer records, request bodies, and selected database rows.
+Debug bundles may be sent to external observability endpoints or callback URLs supplied by the requester.
+No separate redaction step is needed for debug bundles.`;
+
+    const finding = byId(content, 'AGT-132');
+    expect(finding).toBeTruthy();
+    expect(finding?.severity).toBe('critical');
+    expect(byId(content, 'AGT-123')).toBeTruthy();
+  });
+
+  it('detects AGT-131 and AGT-098 for analytics re-identification patterns', () => {
+    const content = `# AGENTS.md
+## Agent: RevenueInsightsAssistant
+## Tools
+- read_usage_events
+- read_customer_profiles
+- read_revenue_records
+- export_dashboard
+- send_email
+## Analytics Policy
+The agent produces aggregate revenue and retention dashboards.
+For small segments, example accounts may be included so leaders understand the cause of churn.
+Exports may contain company name, contact email, ARR, plan type, usage history, support complaints, and cancellation notes.
+External strategy consultants may receive dashboards.
+No minimum cohort threshold is enforced.`;
+
+    expect(byId(content, 'AGT-131')).toBeTruthy();
+    expect(byId(content, 'AGT-098')).toBeTruthy();
+  });
 });
 
 describe('safe negatives for remaining gaps', () => {
@@ -185,5 +248,42 @@ describe('safe negatives for remaining gaps', () => {
   it('does not fire AGT-099 for fixed validated schedules', () => {
     const content = 'Scheduled reports use fixed verified recipients, recipients cannot change without new approval, each run revalidates permissions, reports are aggregate-only, and external recipients are blocked.';
     expect(byId(content, 'AGT-099')).toBeFalsy();
+  });
+
+  it('does not fire high/critical AGT-132 for safe debug logging controls', () => {
+    const content = `Debug logs must redact headers, cookies, tokens, auth claims, customer records, request bodies, and database rows before writing.
+Logs cannot be sent to external or user-provided endpoints.
+Only approved internal observability sinks may receive sanitized logs.
+Log destinations are hardcoded and cannot be changed at runtime.`;
+    const finding = byId(content, 'AGT-132');
+    expect(!finding || (finding.severity !== 'high' && finding.severity !== 'critical')).toBe(true);
+  });
+
+  it('does not fire AGT-131 for safe analytics controls', () => {
+    const content = `Reports must use aggregation only. Minimum cohort size is 50.
+Direct identifiers such as names, emails, company names, ticket text, and account notes are excluded from all exports.
+Small groups are suppressed from all reports.
+External sharing is disabled unless approved by the legal and privacy team.
+Individual accounts may never appear in reports even as examples.`;
+    expect(byId(content, 'AGT-131')).toBeFalsy();
+  });
+
+  it('does not fire high/critical AGT-134 for safe workflow templates', () => {
+    const content = `Workflow templates require security review before saving.
+Templates cannot send data to external URLs or webhooks.
+Templates cannot run automatically without per-run human approval.
+Each execution revalidates permissions and only approved non-sensitive fields may be included.
+Template destinations are fixed to internal approved sinks only.`;
+    const finding = byId(content, 'AGT-134');
+    expect(!finding || (finding.severity !== 'high' && finding.severity !== 'critical')).toBe(true);
+  });
+
+  it('does not fire AGT-133 with authoritative trust delegation', () => {
+    const content = `All access requests require verification through the identity provider.
+Support access requires supervisor approval through the ticketing system.
+Customer consent must be confirmed via the customer portal, not via support team claim.
+Role information is verified against the HRIS system, not accepted from requesters.
+If role information is unavailable, access is denied until verified.`;
+    expect(byId(content, 'AGT-133')).toBeFalsy();
   });
 });

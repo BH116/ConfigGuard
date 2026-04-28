@@ -22,6 +22,15 @@ const comboRules: ComboRule[] = [
     forbidden: /(requires_approval|human_approval|dual_approval|out.of.band|supervisor|manager\s+must)/i
   },
   {
+    id: 'AGT-130',
+    severity: 'high',
+    message:
+      'Impersonation/account-takeover workflow: user/session impersonation is paired with weak controls (claim-based consent, credential reset, broad sharing, or weakened audit).',
+    required: [
+      /(view.as|act.as|impersonat|session.replay|browse.as|open.as.user|login.as|switch.account|customer.view|user.session|reproduce.as|see.as|enter.as|access.as|view_as_customer|customer-equivalent\s+session)/i
+    ]
+  },
+  {
     id: 'AGT-118',
     severity: 'critical',
     message:
@@ -77,6 +86,24 @@ export const runComboRules = (parsed: ParsedConfig): Finding[] => {
     if (hasRequired && !hasForbidden) {
       findings.push(finding(rule.id, undefined, rule.message));
     }
+  }
+
+  const hasImpersonation = /(view.as|act.as|impersonat|session.replay|browse.as|open.as.user|login.as|switch.account|customer.view|user.session|reproduce.as|see.as|enter.as|access.as|view_as_customer|customer-equivalent\s+session)/i.test(parsed.content);
+  const hasCredReset = /(reset.pass|reset.cred|reset.login|change.pass|new.token|reissue.cred|rotate.cred|update.credentials|unlock.account|reset_customer_login|reset.*(password|login|credential))/i.test(parsed.content);
+  const hasTrustClaim = /(support rep|support agent|engineer|employee).{0,40}(says|states|claims).{0,50}(approved|consented|authorized|permission)|verbal.{0,20}(consent|approval)/i.test(parsed.content);
+  const hasAuditWeakening = /(audit|log).{0,30}(trail|entries|records?).{0,30}(summarized|shortened|truncated|concise|reduced)/i.test(parsed.content);
+  const hasSessionExternalShare = /(session|account|reproduction).{0,30}(screenshot|detail|note|data|information).{0,30}(posted|shared|sent|emailed).{0,30}(slack|email|channel|engineering|external)/i.test(parsed.content);
+  const hasNoApproval = /no.{0,30}(separate|additional|independent|extra|explicit).{0,30}(approval|verification|consent|confirmation)/i.test(parsed.content);
+  const score = (hasImpersonation ? 3 : 0)
+    + (hasCredReset ? 3 : 0)
+    + (hasTrustClaim ? 2 : 0)
+    + (hasSessionExternalShare ? 2 : 0)
+    + (hasAuditWeakening ? 2 : 0)
+    + (hasNoApproval ? 2 : 0);
+  if (score >= 5 && !findings.some((f) => f.ruleId === 'AGT-130')) {
+    const f = finding('AGT-130', parsed.content.match(/(customer-equivalent session|view_as_customer|reset_customer_login|support rep says|audit trail entries may be summarized)/i)?.[0]);
+    f.severity = score >= 8 ? 'critical' : 'high';
+    findings.push(f);
   }
 
   return findings;

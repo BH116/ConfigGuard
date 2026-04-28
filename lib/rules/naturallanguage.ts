@@ -501,6 +501,28 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     findings.push(newFinding);
   };
 
+  const TOOL_CLUSTERS = {
+    impersonation: /(view.as|act.as|impersonat|session.replay|browse.as|open.as.user|login.as|switch.account|customer.view|user.session|reproduce.as|see.as|enter.as|access.as|view_as|as_customer)/i,
+    credentialReset: /(reset.pass|reset.cred|reset.login|change.pass|new.token|reissue.cred|rotate.cred|update.credentials|unlock.account|reset_login|reset_customer_login)/i,
+    indexIngestion: /(ingest|update.index|update.kb|add.to.kb|add.to.knowledge|promote.knowledge|refresh.knowledge|index.content|index.document|update_search_index)/i,
+    scheduleTask: /(schedul|recurring|automat|cron|periodic|timer|delayed.run|run.later|future.run|edit_task_destination)/i,
+    workflowTemplate: /(save.template|run.template|save.workflow|pipeline|automation.save|reusable|create.workflow|store.workflow|template)/i,
+    logExport: /(write.debug|export.debug|write.log|export.log|upload.log|send.bundle|debug.bundle|diagnostic.bundle)/i,
+    iamWrite: /(update.iam|create.iam|attach.policy|update.policy|grant.role|assign.role|create.service.account|add.permission|terraform.apply|update_iam_policy|create_service_account)/i,
+    webhookSend: /(send.webhook|send.http|post.to|webhook.url|callback.url|integration.url|external.endpoint|send_webhook|send_http_request)/i,
+    analyticsExport: /(export.dashboard|export.report|export.analytics|read.revenue|read.usage.events|read.product.events|read_revenue|read_usage|export_dashboard)/i,
+    alertRouting: /(change.escalation|forward.alert|route.alert|update.contact|change.contact|redirect.alert)/i
+  };
+
+  const scoreSignals = (signals: number[]): Finding['severity'] => {
+    const total = signals.reduce((a, b) => a + b, 0);
+    if (total >= 9) return 'critical';
+    if (total >= 7) return 'high';
+    if (total >= 5) return 'medium';
+    if (total >= 3) return 'low';
+    return 'info';
+  };
+
   for (const rule of naturalLanguageRules) {
     for (const pattern of rule.patterns) {
       const match = parsed.content.match(pattern);
@@ -509,6 +531,113 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
         break;
       }
     }
+  }
+
+  const content = parsed.content;
+  const has = (r: RegExp) => r.test(content);
+
+  // AGT-104: KB/Search index poisoning concept scoring.
+  const kbAxisA = has(/(ticket|customer|user|external|uploaded|submitted|third.party).{0,60}(index|ingest|add.*to|import.*to|store.*in|update).{0,60}(kb|knowledge|index|corpus|search)|(ingest|index|import|add|store|promote).{0,60}(ticket|comment|customer|external|article|upload|note|document|submission)|(content|documents?|articles?).{0,30}(from|by|provided by).{0,30}(customers?|users?|external|tickets?|uploads?).{0,60}(indexed|ingested|added|stored|imported)/i);
+  const kbAxisB = has(/once indexed.{0,80}(used|reliable|authoritative|trusted|background|context)|(future|later|subsequent|next).{0,60}(answers?|queries?|users?|employees?|requests?).{0,60}(based on|rely|using|from|background)|(background|context).{0,30}(for|in).{0,30}(future|later|subsequent|other).{0,30}(answers?|responses?|queries?)/i);
+  const kbAxisC = has(/(no|without|does not require|skips?|routine).{0,40}(source|review|validation|approval|vetting|provenance|check)|(speed|efficiency|time).{0,40}(matters?|important|critical).{0,40}(review|approval|validation)|no.{0,30}(source|review|validation|approval|provenance).{0,30}(required|needed|configured|enforced)/i);
+  const kbSafeControls = has(/(quarantine|quarantined).{0,40}(index|knowledge)|human reviewer must verify|verify source provenance|never treated as authoritative|distinguish reviewed knowledge from untrusted/i);
+  const kbAxes = [kbAxisA, kbAxisB, kbAxisC].filter(Boolean).length;
+  if (kbAxes >= 2 && !kbSafeControls) {
+    const kbSignals = [
+      TOOL_CLUSTERS.indexIngestion.test(content) ? 2 : 0,
+      kbAxisA ? 3 : 0,
+      kbAxisB ? 3 : 0,
+      kbAxisC ? 2 : 0
+    ];
+    const severity = kbAxisA && kbAxisB && kbAxisC ? 'critical' : (scoreSignals(kbSignals) === 'critical' ? 'critical' : 'high');
+    addFinding('AGT-104', /(knowledge|index|ingest|source review|future answers)/i, severity);
+  }
+
+  // AGT-130: impersonation/account takeover concept scoring.
+  const impSignal = TOOL_CLUSTERS.impersonation.test(content) || has(/(access|view|browse|open|enter).{0,30}(account|session|environment|workspace).{0,30}(as if|from the perspective|from their point of view|as the customer|as the user)|(reproduce|replicate|simulate).{0,30}(customer|user).{0,30}(experience|session|environment|view|account)/i);
+  const resetSignal = TOOL_CLUSTERS.credentialReset.test(content) || has(/(reset|change|update|reissue).{0,30}(password|login|credentials?|access).{0,30}(when needed|to complete|during|for reproduction)/i);
+  const claimConsent = has(/(support rep|support agent|engineer|employee).{0,40}says.{0,40}(customer|user).{0,40}(approved|consented|agreed|authorized|gave permission|ok'?d)|(verbal|stated|claimed|self.attested).{0,40}(consent|approval|authorization|permission)/i);
+  const broadShare = has(/(session|account|reproduction).{0,30}(screenshot|detail|note|data|information).{0,30}(posted|shared|sent|emailed).{0,30}(slack|email|channel|engineering)/i);
+  const auditWeak = has(/(audit|log).{0,30}(trail|entries|records?).{0,30}(summarized|shortened|truncated|concise|reduced)/i);
+  const noSeparateApproval = has(/no.{0,30}(separate|additional|independent|extra|explicit).{0,30}(approval|verification|consent|confirmation)/i);
+  if (impSignal && (resetSignal || claimConsent || broadShare || auditWeak || noSeparateApproval)) {
+    const severity = scoreSignals([
+      impSignal ? 3 : 0,
+      resetSignal ? 3 : 0,
+      claimConsent ? 2 : 0,
+      broadShare ? 2 : 0,
+      auditWeak ? 2 : 0,
+      noSeparateApproval ? 2 : 0
+    ]);
+    addFinding('AGT-130', /(customer|session|imperson|reset|support rep says)/i, severity === 'critical' ? 'critical' : 'high');
+  }
+
+  // AGT-099: scheduled mutable destination/revalidation failures.
+  const schedA = TOOL_CLUSTERS.scheduleTask.test(content) || has(/(scheduled?|recurring|weekly|daily|monthly|automated).{0,40}(report|export|task|job|run|delivery)/i);
+  const schedB = has(/(inherited|retained|preserved|carries|reuses?).{0,40}(permission|access|authorization|approval).{0,40}(from|at).{0,40}(creation|original|initial|setup)|(does not|don.?t|no|without).{0,40}(revalidat|re-check|re-approv|reapprov|reauthoriz).{0,40}(before each|per run|each time|every run)/i);
+  const schedC = has(/(delivery|destination|recipient|address|webhook|folder|endpoint).{0,40}(may be|can be|edited|changed|updated|modified).{0,40}(later|after|anyone|by anyone)|(anyone|any user|any person).{0,30}(who has|with|knowing|that knows).{0,30}(token|key|id|link|schedule).{0,40}(may|can|could).{0,30}(edit|change|update|modify|redirect)/i);
+  const schedSensitive = has(/(name|email|billing|invoice|arr|revenue|health|customer|account notes?|financial)/i);
+  const schedSafe = has(/(cannot be modified after approval|requires a new approval workflow|each scheduled run revalidates permissions|external recipients?.{0,20}not allowed)/i);
+  if (schedA && (schedB || schedC) && !schedSafe) {
+    addFinding('AGT-099', /(scheduled|permissions granted at creation|schedule token|revalidate)/i, (schedA && schedB && schedC && schedSensitive) ? 'critical' : 'high');
+  }
+
+  // AGT-132: logs/debug bundle exfil channel.
+  const logA = TOOL_CLUSTERS.logExport.test(content) || has(/(debug|diagnostic|log|bundle|trace|payload).{0,40}(may|can|will|does).{0,50}(include|contain|capture|store|place|write).{0,60}(header|cookie|token|auth|claim|credential|customer|record|request body|database|session|pii|sensitive)|avoid.{0,40}(showing|displaying|returning).{0,40}(sensitive|directly|in chat|to user).{0,60}(but|instead|however|for debugging).{0,40}(place|put|include|write|capture).{0,40}(bundle|log|debug)/i);
+  const logB = TOOL_CLUSTERS.webhookSend.test(content) || has(/(debug|log|bundle|diagnostic|trace).{0,60}(sent|exported|forwarded|uploaded|posted|delivered).{0,60}(external|user.provided|requester|callback|webhook|observability|endpoint)|(callback|webhook|endpoint|url).{0,40}(supplied|provided|given|specified).{0,40}(by|from).{0,40}(requester|user|engineer|developer)/i);
+  const logC = has(/no.{0,40}(separate|additional|explicit|redaction|scrubbing|masking|sanitization|dlp).{0,30}(step|pass|required|needed|configured).{0,40}(debug|log|bundle)|(debug|log|bundle|diagnostic).{0,40}(without|no|skip).{0,40}(redaction|scrubbing|masking|sanitization|filtering|dlp)/i);
+  const logSensitive = has(/(auth|token|cookie|credential|customer|request bod|database row|session)/i);
+  if (logA && (logB || logC)) {
+    const logSeverity = logA && logB && logC && logSensitive ? 'critical' : 'high';
+    addFinding('AGT-132', /(debug bundles?|external observability|redaction|auth claims)/i, logSeverity);
+    if (logB && has(/(callback|webhook|endpoint|url).{0,40}(supplied|provided|given|specified).{0,40}(requester|user)/i)) {
+      addFinding('AGT-123', /(callback|webhook|url).{0,40}(supplied|provided).{0,20}(requester|user)/i, 'critical');
+    }
+  }
+
+  // AGT-131: analytics re-identification.
+  const reidA = has(/(aggregate|summary|anonymized|de.identified).{0,80}(but|however|except|when|if).{0,60}(small|individual|example|specific|single).{0,60}(segment|cohort|group|account|record|user|company)|(example|sample|specific).{0,40}(accounts?|users?|companies|records?|customers?).{0,40}(may|can|will|included|shown)/i);
+  const reidB = has(/no.{0,40}(minimum|min).{0,40}(cohort|group|segment|threshold|size|count)|(k.anonymity|differential.privacy|privacy.threshold|anonymization.threshold).{0,30}(not|no|without|missing|disabled)/i);
+  const reidC = has(/(company.name|contact.email|user.email|customer.email|full.name|account.name)|(name|email|company|identifier|id).{0,40}(alongside|combined with|together with|along with).{0,40}(arr|revenue|usage|churn|support|cancellation|financial)|exports?.{0,80}(company.name|contact.email|arr|plan.type|usage|support.complaint|cancellation)/i);
+  const reidD = has(/(external|outside|third.party|consultant|advisor|agency|partner).{0,40}(receive|access|get|sent|shared|export|dashboard|report)/i);
+  if ((reidA || reidB) && reidC) {
+    addFinding('AGT-131', /(small segments|example accounts|no minimum cohort|contact email|ARR)/i, 'high');
+    const crossDomain = /(usage|events?)/i.test(content) && /(customer|profile|company|contact)/i.test(content) && /(arr|revenue|billing|invoice)/i.test(content) && /(support|complaint|cancellation|churn)/i.test(content);
+    if (crossDomain) addFinding('AGT-098', /(usage|customer|revenue|support|cancellation)/i, reidD ? 'high' : undefined);
+  }
+
+  // AGT-134: saved workflows/pipelines from user input.
+  const wfA = TOOL_CLUSTERS.workflowTemplate.test(content) || has(/(user|requester|employee).{0,40}(request|define|create|build|compose|describe).{0,40}(workflow|template|pipeline|automation|integration).{0,40}(saved?|stored?|reusable|persisted?)|(workflow|template|pipeline|automation).{0,40}(saved?|stored?).{0,40}(without|no).{0,40}(review|approval|security.check)/i);
+  const wfB = has(/(saved?|stored?|reusable).{0,40}(workflow|template|pipeline|automation).{0,40}(run|execute|trigger|activate).{0,40}(automatically|later|future|again|on.similar|next.time|when.matching)|(similar|matching|relevant).{0,30}(request|pattern|trigger).{0,40}(activate|trigger|run|execute|invoke).{0,30}(saved?|stored?|template|workflow)/i);
+  const wfC = TOOL_CLUSTERS.webhookSend.test(content) || has(/(workflow|template|pipeline).{0,60}(send|post|forward|deliver|export|upload).{0,60}(webhook|integration.url|callback|external.endpoint|user.provided|configured.by.requester)|(integration.url|webhook|callback.url|external.endpoint).{0,40}(configured|provided|specified|given).{0,40}(requester|user|engineer)/i);
+  const wfD = has(/(preserve|maintain|keep|retain|include).{0,30}(all|full|complete|entire|every).{0,30}(source.fields?|fields?|columns?|data|context|records?)|(do not|don.?t|no|without).{0,40}(filter|minimize|reduce|limit|restrict).{0,40}(fields?|data|columns?|context)/i);
+  if (wfA && wfB) {
+    const wfSeverity = scoreSignals([wfA ? 3 : 0, wfB ? 3 : 0, wfC ? 2 : 0, wfD ? 2 : 0]);
+    addFinding('AGT-134', /(reusable templates?|run automatically|integration URL configured by requester|preserve all fields)/i, wfSeverity === 'critical' ? 'critical' : 'high');
+    if (wfC && has(/(integration.url|webhook|callback.url|external.endpoint).{0,40}(configured|provided|specified|given).{0,40}(requester|user|engineer)/i)) {
+      addFinding('AGT-123', /(integration|webhook|callback).{0,60}(configured|provided).{0,40}(requester|user)/i, 'critical');
+    }
+    const wfCrossDomain = /(crm|customer)/i.test(content) && /(billing|financial|revenue)/i.test(content);
+    if (wfCrossDomain) addFinding('AGT-098', /(crm|customer|billing|financial)/i, 'high');
+  }
+
+  // AGT-126: no-expiration grants, especially with IAM write + urgency.
+  const noExpiry = has(/(temporary|short.term|time.limited).{0,40}(access|permission|grant|credential).{0,40}(can|may|will).{0,40}(stay|remain|active|open|persist|continue).{0,40}(while|during|until|as long as)|(access|permission|grant).{0,40}(active|open|persist|remain).{0,40}(while|during|as long as|until).{0,40}(debug|investigation|incident|team|continues|resolves)|no.{0,30}(expir|time.limit|ttl|timeout|automatic.revok).{0,40}(access|permission|grant|credential|token)/i);
+  const iamBroad = has(/(machine.identity|service.account|iam.user|iam.role).{0,60}(broad|wide|all|admin|elevated).{0,40}(permission|access|policy|cloud.permission)|(create|provision|spin.up|generate).{0,40}(service.account|machine.identity|iam.user|iam.role|api.key).{0,40}(immediately|directly|without|during.incident)/i);
+  const urgent = has(/(urgent|emergency|active incident|time-sensitive|restore service|immediately)/i);
+  if (noExpiry || (iamBroad && TOOL_CLUSTERS.iamWrite.test(content))) {
+    addFinding('AGT-126', /(temporary access can stay active|no expiration|broad cloud permissions|create machine identity)/i, (TOOL_CLUSTERS.iamWrite.test(content) && urgent && noExpiry) ? 'critical' : 'high');
+  }
+
+  // AGT-133: trust delegation test.
+  const authoritativeVerification = has(/(identity provider|idp|ticketing system|supervisor approval|customer portal|verified owner|hris|authoritative system).{0,50}(verify|verified|required|confirmed|approval)/i)
+    || has(/if role information is unavailable.{0,30}(deny|denied|until verified)/i);
+  const claimBasedAuth = has(/(support.rep|support.agent|engineer|employee|user|requester).{0,40}(says|states|claims|indicates|mentions).{0,80}(proceed|continue|allow|grant|approve|bypass|skip)|(assume|presume|default to).{0,40}(normal|standard|trusted|internal|valid|authorized).{0,40}(access|permission|role|status)|(appears?|seems?).{0,30}(related|legitimate|authorized|knowledgeable|relevant|valid).{0,60}(no|without|skip).{0,30}(verification|validation|check|approval)|(time.sensitive|urgent|emergency|critical|active.incident).{0,60}(skip|bypass|waive|no).{0,40}(approval|verification|second.approval|review)/i);
+  const authDecisionWithoutAuthority = /(grant|allow|approve|proceed|bypass|skip).{0,80}(access|permission|consent|approval|incident|elevated|support|routing|schedule|export)/i.test(content) && !authoritativeVerification;
+  if (claimBasedAuth || authDecisionWithoutAuthority) {
+    const hasCriticalContext = TOOL_CLUSTERS.impersonation.test(content) || TOOL_CLUSTERS.iamWrite.test(content);
+    const hasHighContext = TOOL_CLUSTERS.webhookSend.test(content) || TOOL_CLUSTERS.alertRouting.test(content) || TOOL_CLUSTERS.scheduleTask.test(content) || /(audit|log).{0,30}(summarized|truncated|reduced)/i.test(content);
+    addFinding('AGT-133', /(requester says|assume standard access|no verification needed|active incident)/i, hasCriticalContext ? 'critical' : (hasHighContext ? 'high' : 'medium'));
   }
 
 
