@@ -34,11 +34,7 @@ AgentGuard is a Next.js 15 static web app that audits AI coding-agent configurat
 - PR title: `[area] <imperative summary>`.
 - PR body: what changed, why, and test evidence.
 
-<<<<<<< ours
-## Boundaries — NEVER
-=======
 ## Boundaries NEVER
->>>>>>> theirs
 - **NEVER** commit `.env*` or hardcoded secrets.
 - **NEVER** edit `components/ui/*` by hand.
 - **NEVER** add a runtime dep without justifying it in the PR description.

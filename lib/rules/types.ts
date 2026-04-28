@@ -1,8 +1,5 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
-<<<<<<< ours
-export type FileType = 'cursor' | 'claude' | 'agents-md' | 'aider' | 'mcp' | 'auto';
-=======
 export type FileType =
   | 'codex'
   | 'cursor'
@@ -14,7 +11,6 @@ export type FileType =
   | 'claude'
   | 'mcp'
   | 'auto';
->>>>>>> theirs
 
 export interface ReferenceLink {
   label: string;
@@ -31,8 +27,6 @@ export interface Rule {
   remediation: string;
 }
 
-<<<<<<< ours
-=======
 export interface NormalizedAgentConfig {
   kind: FileType;
   raw: string;
@@ -44,17 +38,13 @@ export interface NormalizedAgentConfig {
   additionalDirectories: string[];
 }
 
->>>>>>> theirs
 export interface ParsedConfig {
   fileType: FileType;
   fileName?: string;
   content: string;
   json?: Record<string, unknown>;
   yaml?: Record<string, unknown>;
-<<<<<<< ours
-=======
   normalized: NormalizedAgentConfig;
->>>>>>> theirs
 }
 
 export interface Finding {

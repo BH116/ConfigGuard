@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import YAML from 'yaml';
 import { ParsedConfig, FileType } from '../rules/types';
-<<<<<<< ours
-=======
 import { parseCodexConfig } from './codex';
 import { parseCursorConfig } from './cursor';
 import { parseClaudeConfig } from './claude';
@@ -12,20 +10,11 @@ import { parseCopilotConfig } from './copilot';
 import { parseContinueConfig } from './continue';
 import { parseWindsurfConfig } from './windsurf';
 import { parseGeminiConfig } from './gemini';
->>>>>>> theirs
 
 const textSchema = z.string().min(1);
 
 const detectType = (fileName?: string, content = ''): FileType => {
   const f = (fileName ?? '').toLowerCase();
-<<<<<<< ours
-  if (f.includes('aider')) return 'aider';
-  if (f.includes('agent')) return 'agents-md';
-  if (f.includes('claude')) return 'claude';
-  if (f.includes('mcp')) return 'mcp';
-  if (f.includes('cursor') || f.includes('cursorrules')) return 'cursor';
-  if (/mcpServers|defaultMode|WebFetch|Bash/.test(content)) return 'claude';
-=======
   const c = content.toLowerCase();
   if (f.endsWith('agents.md')) return 'codex';
   if (f.includes('copilot-instructions') || f.includes('.instructions.md') || (f.includes('settings.json') && c.includes('github.copilot'))) return 'copilot';
@@ -37,7 +26,6 @@ const detectType = (fileName?: string, content = ''): FileType => {
   if (f.includes('cursor') || f.includes('cursorrules')) return 'cursor';
   if (f.includes('mcp')) return 'mcp';
   if (c.includes('mcpservers')) return 'mcp';
->>>>>>> theirs
   return 'auto';
 };
 
@@ -48,9 +36,6 @@ export const parseConfig = (content: string, fileName?: string, selectedType?: F
   let yaml: Record<string, unknown> | undefined;
   try { json = JSON.parse(safe) as Record<string, unknown>; } catch {}
   try { yaml = YAML.parse(safe) as Record<string, unknown>; } catch {}
-<<<<<<< ours
-  return { fileType, fileName, content: safe, json, yaml };
-=======
 
   const normalized =
     fileType === 'codex' ? parseCodexConfig(safe) :
@@ -65,5 +50,4 @@ export const parseConfig = (content: string, fileName?: string, selectedType?: F
     parseCodexConfig(safe);
 
   return { fileType, fileName, content: safe, json, yaml, normalized };
->>>>>>> theirs
 };

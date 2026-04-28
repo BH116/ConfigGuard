@@ -45,13 +45,7 @@
     "prettier": "^3.5.3",
     "tailwindcss": "^4.1.7",
     "typescript": "^5.8.3",
-<<<<<<< ours
-    "vitest": "^2.1.9"
-  }
-}
-=======
     "vitest": "^2.1.9",
     "@eslint/eslintrc": "^3.1.0"
   }
 }
->>>>>>> theirs
