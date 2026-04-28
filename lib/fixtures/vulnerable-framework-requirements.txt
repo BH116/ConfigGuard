@@ -1,5 +1,5 @@
 # Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
-langchain-core==0.3.50
+langchain-core==1.2.28
 vllm==0.10.0
 ollama==0.11.0
 litellm==1.82.7
