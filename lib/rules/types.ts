@@ -52,7 +52,7 @@ export interface Finding {
   severity: Severity;
   title: string;
   description: string;
-  excerpt: string;
+  excerpt?: string;
   remediation: string;
   references: ReferenceLink[];
 }

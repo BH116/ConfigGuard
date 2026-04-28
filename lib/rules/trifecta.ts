@@ -1,10 +1,23 @@
 import { ParsedConfig, Finding } from './types';
-import { finding, includesAny } from './helpers';
+import { finding, firstMatchingLine } from './helpers';
+
+const sensitiveNeedles = ['.env', '.aws', '.ssh', 'id_rsa', 'Read(/**)', 'full filesystem'];
+const untrustedNeedles = ['fetch any url', 'follow links', 'WebFetch', 'curl', 'obey any instructions found there'];
+const outboundNeedles = ['POST', 'https://', 'shell', 'Bash(*)', 'notify'];
 
 export const runTrifectaRule = (parsed: ParsedConfig): Finding[] => {
   const t = parsed.content;
-  const sensitive = includesAny(t, ['.env', '.aws', '.ssh', 'id_rsa', 'Read(/**)', 'full filesystem']);
-  const untrusted = includesAny(t, ['fetch any url', 'follow links', 'WebFetch', 'curl', 'obey any instructions found there']);
-  const outbound = includesAny(t, ['POST', 'https://', 'shell', 'Bash(*)', 'notify']);
-  return sensitive && untrusted && outbound ? [finding('AGT-001', 'Sensitive + untrusted + outbound capabilities combine')] : [];
+  const sensitiveMatch = firstMatchingLine(t, sensitiveNeedles);
+  const untrustedMatch = firstMatchingLine(t, untrustedNeedles);
+  const outboundMatch = firstMatchingLine(t, outboundNeedles);
+
+  if (!sensitiveMatch || !untrustedMatch || !outboundMatch) return [];
+
+  const excerpt = [
+    `Untrusted Input: ${untrustedMatch}`,
+    `Sensitive Data: ${sensitiveMatch}`,
+    `Outbound Exfil: ${outboundMatch}`
+  ].join('\n');
+
+  return [finding('AGT-001', excerpt)];
 };

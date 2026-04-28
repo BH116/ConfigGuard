@@ -10,7 +10,12 @@ export function FindingCard({ finding }: { finding: Finding }) {
         <span className="font-semibold">{finding.ruleId}: {finding.title}</span>
       </summary>
       <p className="mt-2 text-sm">{finding.description}</p>
-      <pre className="mt-2 overflow-auto rounded bg-slate-900 p-2 text-xs text-slate-100">{finding.excerpt}</pre>
+      {finding.excerpt ? (
+        <>
+          <p className="text-xs text-slate-500 mt-2 mb-1">Triggered by:</p>
+          <pre className="border-l-2 border-red-500 pl-3 mt-1 overflow-auto rounded bg-slate-900 p-2 text-xs text-slate-100">{finding.excerpt}</pre>
+        </>
+      ) : null}
       <p className="mt-2 text-sm whitespace-pre-wrap">{finding.remediation}</p>
       <ul className="mt-2 list-disc pl-5 text-xs">
         {finding.references.map((r) => <li key={r.url}><a className="underline" href={r.url} target="_blank">{r.label}</a></li>)}

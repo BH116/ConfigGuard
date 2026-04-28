@@ -59,7 +59,7 @@ export function Auditor() {
         <option className="bg-slate-800 text-white" value="">Try a sample</option>
         {samples.map((s) => <option className="bg-slate-800 text-white" key={s.key} value={s.key}>{s.label}</option>)}
       </select>
-      <button className="rounded bg-black px-4 py-2 text-white" onClick={() => setFindings(runRules(parseConfig(text, undefined, type)))}>Audit</button>
+      <button className="rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-6 py-2 text-sm font-semibold text-white transition-colors cursor-pointer" onClick={() => setFindings(runRules(parseConfig(text, undefined, type)))}>Audit</button>
     </div>
     <div>{findings.length===0 ? <p className="rounded border p-6 text-slate-500">Paste a config to begin</p> : <FindingsList findings={findings} />}</div>
   </section>;

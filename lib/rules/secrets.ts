@@ -11,12 +11,16 @@ const secretRegexes = [
 
 export const runSecretsRules = (parsed: ParsedConfig): Finding[] => {
   const findings: Finding[] = [];
-  if (secretRegexes.some((rx) => rx.test(parsed.content))) findings.push(finding('AGT-002', 'Potential hardcoded secret token found'));
+  const matchedSecret = secretRegexes
+    .map((rx) => parsed.content.match(rx)?.[0])
+    .find(Boolean);
+
+  if (matchedSecret) findings.push(finding('AGT-002', matchedSecret));
 
   const envRegex = /"([A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|DSN|URI))"\s*:\s*"([^"]+)"/g;
   let m: RegExpExecArray | null;
   while ((m = envRegex.exec(parsed.content)) !== null) {
-    if (!m[3].startsWith('${')) findings.push(finding('AGT-015', `${m[1]} has literal value`));
+    if (!m[3].startsWith('${')) findings.push(finding('AGT-015', `${m[1]}: "${m[3]}"`, `${m[1]} has literal value`));
   }
   return findings;
 };

@@ -18,6 +18,13 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
     { key: 'low', label: 'Low', count: counts.low, color: 'bg-blue-500' }
   ].filter((severity) => severity.count > 0);
 
+  const trifecta = sorted.find((f) => f.ruleId === 'AGT-001');
+  const excerpt = trifecta?.excerpt ?? '';
+  const hasUntrusted = excerpt.includes('Untrusted Input:') && !excerpt.includes('Untrusted Input: not detected');
+  const hasSensitive = excerpt.includes('Sensitive Data:') && !excerpt.includes('Sensitive Data: not detected');
+  const hasOutbound = excerpt.includes('Outbound Exfil:') && !excerpt.includes('Outbound Exfil: not detected');
+  const hasAnyLeg = hasUntrusted || hasSensitive || hasOutbound;
+
   return (
     <div className="space-y-3">
       {severitySummary.length > 0 ? (
@@ -33,8 +40,13 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
           ))}
         </div>
       ) : null}
-      <TrifectaDiagram active={sorted.some((f) => f.ruleId === 'AGT-001')} />
-      <button className="rounded border px-3 py-1" onClick={() => navigator.clipboard.writeText(report)}>Copy report as Markdown</button>
+      {hasAnyLeg ? <TrifectaDiagram hasUntrusted={hasUntrusted} hasSensitive={hasSensitive} hasOutbound={hasOutbound} /> : null}
+      <button
+        className="rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-6 py-2 text-sm font-semibold text-white transition-colors cursor-pointer"
+        onClick={() => navigator.clipboard.writeText(report)}
+      >
+        Copy report as Markdown
+      </button>
       <div className="space-y-2">{sorted.map((f) => <FindingCard finding={f} key={f.ruleId} />)}</div>
     </div>
   );

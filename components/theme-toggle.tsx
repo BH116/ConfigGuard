@@ -12,12 +12,11 @@ export function ThemeToggle() {
   }, []);
 
   const isDark = mounted && resolvedTheme === 'dark';
-  const nextTheme = isDark ? 'light' : 'dark';
 
   return (
     <button
       className="rounded border border-slate-300 bg-white px-3 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      onClick={() => setTheme(nextTheme)}
+      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
       type="button"
     >
       {isDark ? 'Light' : 'Dark'}

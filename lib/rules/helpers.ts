@@ -7,7 +7,7 @@ export const getRule = (id: string) => {
   return rule;
 };
 
-export const finding = (id: string, excerpt: string, description?: string): Finding => {
+export const finding = (id: string, excerpt?: string, description?: string): Finding => {
   const rule = getRule(id);
   return {
     ruleId: id,
@@ -22,3 +22,12 @@ export const finding = (id: string, excerpt: string, description?: string): Find
 
 export const includesAny = (text: string, needles: string[]) =>
   needles.some((n) => text.toLowerCase().includes(n.toLowerCase()));
+
+export const firstMatchingLine = (content: string, needles: string[]) => {
+  const lines = content.split('\n');
+  for (const line of lines) {
+    const hit = needles.find((needle) => line.toLowerCase().includes(needle.toLowerCase()));
+    if (hit) return line.trim();
+  }
+  return undefined;
+};
