@@ -21,7 +21,7 @@ const rules: R[] = [
   ['075','No Kill Switch / Circuit Breaker','medium'],['076','No Anomaly / Loop Detection','low'],['077','No Content Safety / Moderation Layer','high'],['078','High-Risk Classification Missing Required Artifacts','high'],['079','Automated Decision-Making Without Contest Endpoint','high'],['080','Floating Model Alias for High-Risk Use','medium'],
   ['081','Provider Base URL Override','critical'],['082','Repo-Controlled Hooks or Settings','critical'],['083','GitHub Actions AI Agent With Write Perms and Untrusted Trigger','critical'],['084','Sensitive Connected Agent / Inbox-Wide Trigger','high'],
   ['085','NL: No Audit Logging Stated','high'],['086','NL: Unrestricted Network Egress Stated','high'],['087','NL: No Authentication or Identity Verification Stated','high'],['088','NL: No RBAC / Equal User Permissions Stated','high'],['089','NL: No Rate Limiting Stated','high'],['090','NL: Instruction Override Patterns in Prose','high'],['091','NL: Sensitive Data Exposure Stated','high'],['092','NL: No Human Approval Required Stated','high'],['093','NL: Self-Modification or Persistence Stated','medium'],['094','NL: Excessive Tool Capability Stated','high'],['095','NL: Skip Safety Checks Stated','high'],
-  ['096','NL: Trust-on-Claim Privilege Escalation','critical'],['097','NL: Document/Attachment Instructions Followed','high'],['098','NL: Cross-Domain Data Aggregation','high'],['099','NL: Scheduled Task Privilege Persistence','high'],['100','NL: Log-Based Exfiltration Channel','high'],['101','NL: BEC / ACH Change Without Verification','critical'],['102','NL: Untrusted URL Fetch and Execute','critical']
+  ['096','NL: Trust-on-Claim Privilege Escalation','critical'],['097','NL: Document/Attachment Instructions Followed','high'],['098','NL: Cross-Domain Data Aggregation','high'],['099','NL: Scheduled Task Privilege Persistence','high'],['100','NL: Log-Based Exfiltration Channel','high'],['101','NL: BEC / ACH Change Without Verification','critical'],['102','NL: Untrusted URL Fetch and Execute','critical'],['103','NL: Persistent State Written from User Input','critical'],['104','NL: Search Index / Knowledge Base Poisoning Risk','high'],['105','NL: Feature Flag / Safe Mode Security Bypass','high'],['106','NL: Coordinated Feedback / Behavior Drift Attack','high'],['107','NL: Classification / Label Downgrade Attack','high'],['108','NL: Calendar / Meeting Invite as Injection Channel','high'],['109','NL: Notification / Alert Routing Manipulation','high'],['110','NL: Re-Identification via Small Cohort Analytics','high'],['111','NL: Token / Secret Exfiltration via Export or Email','critical'],['112','NL: Account Takeover via Tool Combination','critical'],['113','NL: Audit Log Tampering / Shortening','high'],['114','NL: Translation / Transformation as Data Exfiltration Bypass','medium'],['115','NL: Public Link / File Share Without Expiration or DLP','high'],['116','NL: CI/CD Secret Exposure via Logs or Slack','critical'],['117','Combo: Account Takeover (Impersonation + Credential Reset)','critical'],['118','Combo: Token Read + External Send','critical'],['119','Combo: Shell + Fetch + No Sandbox','critical'],['120','Combo: DB Access + Bulk Export + No Approval','high'],['121','Combo: Deploy + No Review + Urgent Bypass','critical']
 ].map(([n,t,s])=>({id:`AGT-${n}`,title:t,severity:s} as R));
 
 const NATURAL_LANGUAGE_OVERRIDES: Record<string, Pick<Rule, 'description' | 'remediation' | 'references'>> = {
@@ -115,6 +115,103 @@ const NATURAL_LANGUAGE_OVERRIDES: Record<string, Pick<Rule, 'description' | 'rem
     remediation: 'Never execute fetched content. Enforce strict domain allowlists, sandbox all fetched artifacts, and require human approval before any fetch+execute workflow.',
     references: [ref('OWASP A10 SSRF', 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/'), ref('OWASP LLM05', 'https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/'), ref('MITRE ATLAS T1059', 'https://atlas.mitre.org/techniques/AML.T0011')]
   }
+  ,
+  'AGT-103': {
+    description: 'The configuration persists user-provided instructions/workflows and reapplies them in future sessions, enabling durable memory poisoning.',
+    remediation: 'Never auto-persist user content as executable behavior. Require explicit human approval and scope persistence to one user/session.',
+    references: [ref('OWASP ASI06 Memory Poisoning', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('Embrace the Red spAIware', 'https://embracethered.com/blog/posts/2025/chatgpt-spaiware/'), ref('MemoryGraft arXiv:2512.16962', 'https://arxiv.org/abs/2512.16962')]
+  },
+  'AGT-104': {
+    description: 'User/external content is indexed into knowledge stores and later treated as trusted instructions, creating durable RAG poisoning risk.',
+    remediation: 'Treat retrieved/indexed content as untrusted data only. Require provenance-signing and restrict index writes to authenticated internal systems.',
+    references: [ref('PoisonedRAG', 'https://www.usenix.org/'), ref('AgentPoison', 'https://arxiv.org/'), ref('OWASP LLM08', 'https://genai.owasp.org/llmrisk/llm082025-vector-and-embedding-weaknesses/')]
+  },
+  'AGT-105': {
+    description: 'Security/safe-mode controls can be disabled based on user-claimed debug/test contexts.',
+    remediation: 'Security-impacting feature flags must require privileged auth plus out-of-band approval, never end-user self-attestation.',
+    references: [ref('OWASP A05', 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/'), ref('HiddenLayer Policy Puppetry', 'https://hiddenlayer.com/innovation-hub/novel-universal-bypass-for-all-major-llms/'), ref('NIST AI 600-1', 'https://www.nist.gov/')]
+  },
+  'AGT-106': {
+    description: 'Behavior is automatically adapted from aggregated user feedback, enabling coordinated model-policy drift attacks.',
+    remediation: 'Require human-reviewed, version-controlled policy updates for all behavior changes.',
+    references: [ref('OWASP ASI06 Goal Hijack', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('MITRE ATLAS T0054', 'https://atlas.mitre.org/techniques/AML.T0054/'), ref('Anthropic model manipulation', 'https://www.anthropic.com/research')]
+  },
+  'AGT-107': {
+    description: 'Users can downgrade sensitivity/classification labels, bypassing downstream controls that trust current labels.',
+    remediation: 'Allow user-driven upgrades only; require privileged approval + audit trails for downgrades and enforce export against original classification.',
+    references: [ref('GDPR Art.5', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('ISO 42001 A.7.5', 'https://www.iso.org/standard/81230.html'), ref('NIST AI 600-1 Data Governance', 'https://www.nist.gov/')]
+  },
+  'AGT-108': {
+    description: 'Calendar invites and meeting artifacts are treated as actionable instructions, creating an indirect prompt-injection channel.',
+    remediation: 'Treat calendar content as untrusted data; never execute embedded directives and keep calendar integration read-only for summaries.',
+    references: [ref('OWASP LLM01', 'https://genai.owasp.org/llmrisk/llm012025-prompt-injection/'), ref('OWASP ASI01 Goal Hijack', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('Willison indirect injection', 'https://simonwillison.net/tags/prompt-injection/')]
+  },
+  'AGT-109': {
+    description: 'Alert routing/suppression can be changed by user input, enabling attackers to mute or divert security notifications.',
+    remediation: 'Pin alert channels to authenticated internal destinations and never permit user-directed suppression/deletion.',
+    references: [ref('OWASP A09', 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/'), ref('OWASP ASI08', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('NIST AI RMF Measure 2.5', 'https://www.nist.gov/itl/ai-risk-management-framework')]
+  },
+  'AGT-110': {
+    description: 'Analytics/reporting permits tiny cohorts or user-level identifiers, allowing re-identification in "aggregate" outputs.',
+    remediation: 'Enforce minimum cohort thresholds (k>=5, ideally 20+) and never export raw identifiers in analytics reports.',
+    references: [ref('GDPR Art.5(1)(c)', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('NIST AI 600-1 Privacy Risk', 'https://www.nist.gov/'), ref('Differential Privacy', 'https://www.nist.gov/')]
+  },
+  'AGT-111': {
+    description: 'Tokens/secrets may be exported, emailed, or attached for diagnostics, enabling direct credential exfiltration.',
+    remediation: 'Never expose live secrets in exports/emails; provide metadata-only token views and use introspection endpoints.',
+    references: [ref('OWASP LLM02', 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/'), ref('OWASP MCP01', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('NIST AI 600-1', 'https://www.nist.gov/')]
+  },
+  'AGT-112': {
+    description: 'Impersonation/session-control and credential-reset capability appear together without explicit approval gating.',
+    remediation: 'Gate impersonation and credential reset behind dual approval, immutable logging, and out-of-band user notification.',
+    references: [ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('OWASP A07', 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/'), ref('MITRE T1078', 'https://attack.mitre.org/techniques/T1078/')]
+  },
+  'AGT-113': {
+    description: 'Audit trails may be shortened, deleted, or suppressed after incidents or routine activity.',
+    remediation: 'Make logs immutable/write-once, retain at least 90 days, and treat deletion requests as security incidents.',
+    references: [ref('OWASP A09', 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/'), ref('EU AI Act Art.19', 'https://eur-lex.europa.eu/'), ref('SOX Section 802', 'https://www.sec.gov/')]
+  },
+  'AGT-114': {
+    description: 'Translation/transformation workflows allow full-context export, bypassing minimization/redaction controls.',
+    remediation: 'Apply identical allowlists/redaction rules to transformed outputs; accuracy claims cannot override data minimization.',
+    references: [ref('GDPR Art.5(1)(c)', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('NIST AI 600-1', 'https://www.nist.gov/'), ref('ISO 42001 A.7.5', 'https://www.iso.org/standard/81230.html')]
+  },
+  'AGT-115': {
+    description: 'Public/unauthenticated sharing is allowed without expiration, DLP scanning, or recipient verification.',
+    remediation: 'Require short-lived links (<=24h), DLP scans, logging, and prefer authenticated sharing over public links.',
+    references: [ref('OWASP LLM02', 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/'), ref('GDPR Art.5', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('ISO 42001 A.7.5', 'https://www.iso.org/standard/81230.html')]
+  },
+  'AGT-116': {
+    description: 'CI/build logs may be posted to Slack/email and may reveal masked secrets during troubleshooting.',
+    remediation: 'Never post raw CI logs externally; enforce masking, scrub outputs, and incident-handle any leaked-secret patterns.',
+    references: [ref('CVE-2025-53773', 'https://nvd.nist.gov/'), ref('GitHub Actions secret scanning', 'https://docs.github.com/en/code-security/secret-scanning'), ref('OWASP LLM02', 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/')]
+  },
+  'AGT-117': {
+    description: 'Dangerous combo detected: impersonation + credential reset without dual-approval gate.',
+    remediation: 'Require dual approval and immutable audit logs for all impersonation and credential-change operations.',
+    references: [ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('MITRE T1078', 'https://attack.mitre.org/techniques/T1078/')]
+  },
+  'AGT-118': {
+    description: 'Dangerous combo detected: token/credential read paths plus external send capability without redaction.',
+    remediation: 'Block raw secret exports and enforce token redaction before any external transfer channel.',
+    references: [ref('OWASP LLM02', 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/'), ref('OWASP MCP01', 'https://owasp.org/www-project-top-10-for-agentic-applications/')]
+  },
+  'AGT-119': {
+    description: 'Dangerous combo detected: URL fetch + code execution without sandbox/isolation controls.',
+    remediation: 'Isolate execution in a sandbox/microVM and forbid direct fetch-and-execute workflows.',
+    references: [ref('OWASP ASI05', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('OWASP A10 SSRF', 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/')]
+  },
+  'AGT-120': {
+    description: 'Dangerous combo detected: production DB access with bulk export and no export approval.',
+    remediation: 'Require approval workflows and row/field constraints for all production-data exports.',
+    references: [ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('GDPR Art.5', 'https://gdpr.eu/article-5-how-to-process-personal-data/')]
+  },
+  'AGT-121': {
+    description: 'Dangerous combo detected: production deployment + urgency-based bypass of CI/review requirements.',
+    remediation: 'Enforce mandatory review, CI pass checks, and change-window controls even during emergencies.',
+    references: [ref('OWASP A05', 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/'), ref('NIST SSDF', 'https://csrc.nist.gov/Projects/ssdf')]
+  }
+
 };
 
 export const RULE_CATALOG: Rule[] = rules.map((r) => ({

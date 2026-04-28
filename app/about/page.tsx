@@ -22,7 +22,7 @@ export default function About() {
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-6">
       <h1 className="text-3xl font-bold">About AgentGuard</h1>
-      <p>Taxonomy attribution and responsible use references.</p>
+      <p>Taxonomy attribution and responsible use references. AgentGuard currently ships 121 detection rules.</p>
       <ul className="list-disc pl-6">
         {links.map(([label, url]) => (
           <li key={url}>
@@ -49,6 +49,7 @@ export default function About() {
         <li>Scheduled task abuse and permission persistence.</li>
         <li>Log-based data exfiltration channels.</li>
         <li>Cross-domain sensitive data aggregation risks.</li>
+        <li>Multi-tool attack-chain detection (combo rules) for takeover, exfiltration, RCE, and urgent deploy bypass.</li>
       </ul>
       <p className="pt-4 text-sm text-slate-500">
         AgentGuard is provided for informational and educational purposes only. It is not a substitute for professional security advice, auditing, or penetration testing. Results are not guaranteed to be complete, accurate, or exhaustive. The presence or absence of a finding does not constitute a warranty of security. By using AgentGuard you agree that the authors and contributors are not liable for any damages, losses, or security incidents arising from reliance on this tool. Use only on systems and configurations you own or are authorized to assess.

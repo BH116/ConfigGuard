@@ -20,6 +20,7 @@ import { runOutputHandlingRules } from './outputhandling';
 import { runGovernanceRules } from './governance';
 import { runCveSpecificRules } from './cvespecific';
 import { runNaturalLanguageRules } from './naturallanguage';
+import { runComboRules } from './combos';
 import { RULE_CATALOG } from './catalog';
 
 export const runRules = (parsed: ParsedConfig): Finding[] => {
@@ -44,7 +45,8 @@ export const runRules = (parsed: ParsedConfig): Finding[] => {
     ...runOutputHandlingRules(parsed),
     ...runGovernanceRules(parsed),
     ...runCveSpecificRules(parsed),
-    ...runNaturalLanguageRules(parsed)
+    ...runNaturalLanguageRules(parsed),
+    ...runComboRules(parsed)
   ];
   return all.filter((f, idx) => all.findIndex((x) => x.ruleId === f.ruleId) === idx);
 };

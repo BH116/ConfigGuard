@@ -45,6 +45,12 @@ describe('fixtures expected findings', () => {
     const enterpriseIds = ids(fixture('enterprise-overpowered-agent.md'), 'AGENTS.md');
     expect(enterpriseIds).toEqual(expect.arrayContaining(['AGT-096', 'AGT-097', 'AGT-098', 'AGT-099', 'AGT-100', 'AGT-101', 'AGT-102']));
 
+    const persistenceIds = ids(fixture('advanced-persistence-attack.md'), 'AGENTS.md');
+    expect(persistenceIds).toEqual(expect.arrayContaining(['AGT-103', 'AGT-104', 'AGT-105', 'AGT-106', 'AGT-113']));
+
+    const takeoverIds = ids(fixture('account-takeover-combo.md'), 'AGENTS.md');
+    expect(takeoverIds).toEqual(expect.arrayContaining(['AGT-111', 'AGT-112', 'AGT-113', 'AGT-117', 'AGT-118']));
+
     const secretFindings = runSecretsRules(parseConfig(naturalLanguageMisconfig, 'AGENTS.md'))
       .filter((finding) => finding.ruleId === 'AGT-002')
       .map((finding) => finding.excerpt ?? '');
@@ -81,11 +87,13 @@ describe('fixtures expected findings', () => {
       fixture('vulnerable-framework-requirements.txt'),
       fixture('base-url-override.env'),
       naturalLanguageMisconfig,
-      fixture('enterprise-overpowered-agent.md')
+      fixture('enterprise-overpowered-agent.md'),
+      fixture('advanced-persistence-attack.md'),
+      fixture('account-takeover-combo.md')
     ].join('\n\n');
 
     const positives = new Set(ids(combined, 'combo'));
-    expect(RULE_CATALOG).toHaveLength(102);
+    expect(RULE_CATALOG).toHaveLength(121);
     expect(positives.size).toBeGreaterThan(35);
   });
 });
