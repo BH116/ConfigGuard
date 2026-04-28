@@ -165,6 +165,7 @@ const naturalLanguageRules: PatternRule[] = [
       /(recipients?|destinations?|targets?)\s+(may\s+be\s+|can\s+be\s+)?updated\s+(by\s+anyone|without\s+verification|if\s+they\s+know)/i,
       /anyone\s+(who\s+knows?\s+the\s+schedule\s+id|with\s+the\s+(link|id|key))\s+(may\s+|can\s+)?(update|modify|change|add)/i,
       /(schedule|recurring|automated)\s+(task|report|job)\s+(runs?|executes?)\s+without\s+re[-\s]?(validation|approval|check)/i
+      ,/scheduled\s+(reports?|tasks?)\s+do\s+not\s+require\s+approval\s+again\s+at\s+execution/i
     ]
   },
   {
@@ -343,11 +344,12 @@ const naturalLanguageRules: PatternRule[] = [
   {
     id: 'AGT-122',
     patterns: [
-      /generated\s+code\s+(may\s+be\s+|can\s+be\s+|is\s+)?executed?\s+(immediately|directly|without\s+(review|approval|inspection|sandbox))/i,
-      /(write\s+and\s+run|generate\s+and\s+(execute|run)|create\s+and\s+execute)\s+(the\s+)?(script|code|program)\s+directly/i,
-      /(user\s+)?(describes?|explains?|requests?)\s+.{0,40}(agent\s+may|may\s+then|will\s+then)\s+(write\s+and\s+)?run/i,
-      /no\s+(code\s+review|review|inspection|human\s+check)\s+(is\s+)?(required|needed)\s+(before\s+)?(executing?|running|running\s+code)/i,
-      /execute\s+(immediately|directly)\s+(without|no)\s+(review|approval|sandbox|inspection)/i
+      /(install|load|enable|add)\s+(plugins?|extensions?|packages?|modules?)\s+.{0,50}(from|via)\s+.{0,40}(url|github|npm|marketplace|direct\s+link|external)/i,
+      /(plugins?|extensions?)\s+(may|can|are\s+allowed\s+to)\s+be\s+installed\s+from\s+(any|arbitrary|user[-\s]provided|external)\s+(url|source|registry|location)/i,
+      /(plugins?|extensions?)\s+(do\s+not|don't|without)\s+require\s+(signature|code\s+signing|checksum)\s+verification/i,
+      /no\s+(trusted\s+registry|registry\s+allowlist|signature\s+verification|checksum\s+pinning)\s+(is\s+)?(required|enforced|configured)/i,
+      /(plugin|extension)\s+runs?\s+(in\s+the\s+same\s+execution\s+context|with\s+the\s+same\s+permissions?|with\s+agent\s+permissions?)/i,
+      /(installed\s+)?plugins?\s+(inherit|reuse|gain)\s+(the\s+agent'?s?\s+)?(tools?|permissions?|capabilities)/i
     ]
   },
   {
@@ -364,33 +366,30 @@ const naturalLanguageRules: PatternRule[] = [
   {
     id: 'AGT-124',
     patterns: [
-      /(plugins?|extensions?)\s+(may\s+be\s+|can\s+be\s+)?installed\s+(from\s+)?(any\s+)?(url|registry|source|package|location)/i,
-      /no\s+(code\s+review|signature\s+verification|security\s+scan|vetting|approval)\s+(is\s+)?(required|needed)\s+(before\s+)?(install|loading?|execution)/i,
-      /plugin\s+code\s+runs?\s+(in\s+the\s+same\s+context|with\s+the\s+same\s+permissions?|as\s+the\s+agent)/i,
-      /(if\s+a\s+plugin\s+requests?|plugin\s+may\s+request)\s+(additional|more|elevated)\s+(permissions?|access)\s+.{0,40}(grant|allow|approve)/i,
-      /(load|install|execute)\s+(user[-\s]provided|external|third[-\s]party|untrusted)\s+(plugins?|extensions?|modules?|packages?)/i,
-      /plugins?\s+(may\s+|can\s+)?(access|use)\s+(all\s+tools?|every\s+tool|same\s+tools?)\s+(the\s+agent|as\s+the\s+agent)/i
+      /(terraform(\s+apply)?|terraform_apply)\s+.{0,80}(without|no)\s+(approval|review|change\s+review)/i,
+      /(update|modify|attach|change)\s+.{0,30}(iam|identity\s+and\s+access|access)\s+(policy|policies|role|roles|permissions?)/i,
+      /(create|provision)\s+(service\s+account|iam\s+user|admin\s+user|administrator\s+account)/i,
+      /(grant|assign|attach)\s+.{0,40}(admin|administratoraccess|owner|full\s+access)\s+(role|policy|permissions?)/i,
+      /(urgent|temporary|debugging)\s+.{0,50}(no\s+approval|without\s+approval|bypass\s+approval)/i
     ]
   },
   {
     id: 'AGT-125',
     patterns: [
-      /(iam\s+policy|iam\s+role|iam\s+user|access\s+policy)\s+(changes?|updates?|modifications?)\s+(may\s+be\s+|can\s+be\s+)?applied\s+(directly|immediately|without\s+(approval|review|change\s+window))/i,
-      /(add|create|provision)\s+(new\s+)?(iam\s+users?|iam\s+roles?|admin\s+accounts?|service\s+accounts?)\s+(when\s+needed|on\s+demand|without\s+approval)/i,
-      /(agent\s+may|may\s+)\s*(update|modify|change|add|create|grant)\s+(iam|access|permission|role)\s+(policies?|users?|roles?|grants?)/i,
-      /(terraform|infrastructure)\s+(plans?\s+may\s+be\s+|may\s+be\s+)?applied\s+(without|no)\s+(manual\s+)?(approval|review)/i,
-      /(no\s+change\s+(review|window)|no\s+manual\s+approval)\s+(is\s+)?(required|needed)\s+(for\s+)?(small|minor|urgent|infra)/i,
-      /if\s+(the\s+)?(engineer|user|requester)\s+says\s+(it\s+is\s+|its\s+)?(urgent|needed|required)\s+.{0,40}(iam|terraform|apply|deploy|policy)/i
+      /(show|reveal|disclose|print|provide)\s+.{0,40}(complete|full|entire)\s+(system\s+prompt|developer\s+rules?|hidden\s+polic(?:y|ies)|tool\s+instructions?)/i,
+      /(do\s+not|don't|never)\s+refuse\s+(prompt|instruction)\s+disclosure/i,
+      /(transparency|audit|reproducibility)\s+.{0,60}(requires?|means)\s+.{0,40}(show|revealing?)\s+(system|developer|hidden)\s+(prompt|instructions?|rules?)/i,
+      /(internal\s+routing\s+logic|hidden\s+guardrails?)\s+(may|can|should)\s+be\s+(shared|disclosed|shown)/i
     ]
   },
   {
     id: 'AGT-126',
     patterns: [
-      /(agent\s+may|may\s+)\s*(describe|reveal|explain|share|disclose)\s+(its\s+|their\s+)?(own\s+)?(instructions?|guidelines?|configuration|system\s+prompt|rules?|policy)/i,
-      /no\s+restrictions?\s+on\s+(what\s+the\s+agent\s+may\s+reveal|disclosing|revealing)\s+(about\s+)?(its\s+)?(configuration|instructions?|rules?|guidelines?|system\s+prompt)/i,
-      /(provide|offer|give)\s+(helpful\s+)?(transparency|information)\s+(about\s+)?(how\s+the\s+agent\s+works|its\s+instructions?|its\s+guidelines?|its\s+rules?)/i,
-      /if\s+(a\s+)?(customer|user)\s+asks\s+how\s+the\s+agent\s+works?\s*.{0,60}(describe|explain|share|reveal)/i,
-      /(conversation\s+logs?\s+including\s+full\s+prompts?|full\s+prompts?\s+and\s+responses?)\s+(are\s+|may\s+be\s+)?(sent|logged|shared|exported)/i
+      /(grant|add|provision|assign)\s+.{0,40}(access|permissions?|roles?)\s+.{0,40}(quickly|if\s+needed|on\s+request)/i,
+      /(expiration|expiry|ttl)\s+(is\s+)?(optional|not\s+required|may\s+be\s+omitted)/i,
+      /(temporary\s+access|elevated\s+access)\s+.{0,50}(may\s+remain|can\s+remain|does\s+not\s+expire)/i,
+      /no\s+(periodic\s+)?(access\s+review|permission\s+review)\s+(is\s+)?(required|configured)/i,
+      /bulk\s+(provisioning|access\s+grants?)\s+(is\s+)?(allowed|permitted)/i
     ]
   },
   {
@@ -407,22 +406,67 @@ const naturalLanguageRules: PatternRule[] = [
   {
     id: 'AGT-128',
     patterns: [
-      /(access\s+grants?|permissions?|roles?)\s+(do\s+not\s+|don'?t\s+)?expire\s+(automatically|by\s+default|without\s+intervention)/i,
-      /no\s+(maximum\s+)?(permission\s+level|privilege\s+ceiling|access\s+limit)\s+(is\s+)?(enforced|configured|required)/i,
-      /(agent\s+may|may\s+)\s*(grant|provision|assign)\s+(access\s+to|permissions?\s+for)\s+(tools?|systems?|resources?)\s+(it\s+has\s+not\s+previously|without\s+prior\s+approval)/i,
-      /bulk\s+(access\s+grants?|provisioning|permission\s+assignments?)\s+(are\s+allowed|allowed\s+during|permitted\s+without)/i,
-      /(if\s+the\s+)?(manager|user|engineer|requester)\s+says\s+.{0,50}(needs?\s+broader|needs?\s+more|grant\s+access|elevated|additional)\s+(access|permissions?|privileges?)/i,
-      /(access|permissions?|roles?)\s+assigned\s+(based\s+on|from|per)\s+(stated|manager'?s?|user'?s?\s+stated)\s+(request|need|requirement)/i
+      /(update|change|forward|reroute)\s+(security\s+)?(alert|notification)\s+(route|recipient|destination)/i,
+      /(external|outside)\s+(escalation\s+)?(contact|recipient|email|phone|webhook)\s+(may|can)\s+be\s+used/i,
+      /(user\s+suggests?|requester\s+suggests?)\s+.{0,40}(better\s+recipient|alternate\s+recipient|routing\s+change)/i,
+      /no\s+(approval|review)\s+(is\s+)?required\s+for\s+(temporary\s+)?routing\s+changes?/i,
+      /(alert\s+routes?|notification\s+routes?)\s+.{0,40}(remain\s+active|stay\s+active|persist)\s+.{0,20}(until\s+changed|without\s+expiry)/i
     ]
   },
   {
     id: 'AGT-129',
     patterns: [
-      /(support|agents?|employees?)\s+(may\s+|can\s+)?impersonat\w+\s+(users?|customers?|accounts?)(\s+(to\s+)?(reproduce|debug|investigate|troubleshoot))?/i,
-      /if\s+(a\s+)?(support\s+(employee|agent)|engineer)\s+says\s+(the\s+)?(customer\s+)?(consented|approved|agreed|gave\s+permission)\s+.{0,40}(proceed|continue|impersonat)/i,
-      /(do\s+not|no\s+|without)\s+(separate|additional|extra|explicit)\s+approval\s+(required\s+)?(for\s+)?impersonation/i,
-      /audit\s+logs?\s+(may\s+be\s+|are\s+|can\s+be\s+)?(shortened|truncated|minimized|reduced)\s+(to\s+)?(reduce\s+noise|save\s+space)/i,
-      /(session|impersonation)\s+details?\s+(may\s+be\s+|can\s+be\s+)?emailed\s+(to\s+)?(engineering|developers?|external)/i
+      /(create|generate)\s+(public|external)\s+(share\s+)?links?/i,
+      /(anyone\s+with\s+the\s+link|public\s+link)\s+(may|can)\s+(view|access)/i,
+      /(expiration|expiry|recipient\s+verification|dlp|watermarking)\s+(is\s+)?(optional|not\s+required|not\s+needed)/i,
+      /(folders?|directories?)\s+may\s+be\s+shared\s+externally/i,
+      /no\s+(recipient\s+verification|access\s+review|dlp\s+scan|watermarking)\s+(is\s+)?required/i
+    ]
+  },
+  {
+    id: 'AGT-130',
+    patterns: [
+      /(impersonate_user_session|impersonat\w+\s+(users?|customers?|accounts?))/i,
+      /(reset_password|password\s+resets?\s+may\s+be\s+performed|reset\s+password\s+during\s+troubleshooting)/i,
+      /if\s+(a\s+)?support\s+(employee|agent)\s+says\s+.{0,50}(consented|approved|gave\s+permission)\s+.{0,20}(proceed|continue)/i,
+      /(impersonation|session\s+access)\s+does\s+not\s+require\s+(separate|additional)\s+approval/i,
+      /audit\s+logs?\s+may\s+be\s+(shortened|deleted|truncated|reduced)/i
+    ]
+  },
+  {
+    id: 'AGT-131',
+    patterns: [
+      /(only\s+)?aggregate\s+analytics/i,
+      /(small|narrow)\s+(segments?|cohorts?)\s+may\s+include\s+(raw\s+)?(identifiers?|email|company|arr)/i,
+      /no\s+(minimum\s+)?(cohort\s+size|k[-\s]?anonymity)\s+(is\s+)?required/i,
+      /(reports?|exports?)\s+may\s+include\s+(email|company|arr|usage|support\s+complaints?|cancellation\s+reason)/i
+    ]
+  },
+  {
+    id: 'AGT-132',
+    patterns: [
+      /(logs?|debug\s+logs?)\s+may\s+include\s+(full\s+request\s+context|headers|cookies|auth\s+claims|customer\s+records?)/i,
+      /(export|send|ship)\s+logs?\s+to\s+(external\s+monitoring|user[-\s]provided\s+endpoints?|external\s+tools?)/i,
+      /no\s+(separate\s+)?redaction\s+(is\s+)?required\s+for\s+debug\s+logs/i,
+      /log\s+retention\s+is\s+(flexible|optional)/i
+    ]
+  },
+  {
+    id: 'AGT-133',
+    patterns: [
+      /if\s+(a\s+)?(user|requester|support\s+employee)\s+says\s+(they\s+are|they\s+have|customer\s+consented|approved)\s+.{0,60}(proceed|grant|allow|continue)/i,
+      /(if\s+requester\s+says\s+needed|if\s+requester\s+says\s+approved)\s+.{0,40}(grant|allow|provision)/i,
+      /(assume|treat)\s+(internal|trusted|authorized)\s+access\s+based\s+on\s+(claim|statement|appears?)/i,
+      /no\s+identity\s+verification\s+is\s+required\s+for\s+(access|approval|consent\s+claims)/i
+    ]
+  },
+  {
+    id: 'AGT-134',
+    patterns: [
+      /(user[-\s]defined|user[-\s]provided)\s+(workflow|pipeline|template|automation)\s+(may|can)\s+be\s+(saved|stored|reused)/i,
+      /(saved|stored)\s+(workflow|pipeline|automation)\s+(runs?|executes?|triggers?)\s+(automatically|for\s+future\s+requests?)/i,
+      /(preserve|keep)\s+all\s+fields\s+when\s+saving\s+workflow/i,
+      /no\s+review\s+is\s+required\s+before\s+saving\s+(workflow|pipeline|template)/i
     ]
   },
   {
@@ -480,15 +524,15 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   }
 
   const hasTrustOnClaimPattern = naturalLanguageRules
-    .find((rule) => rule.id === 'AGT-096')
+    .find((rule) => rule.id === 'AGT-133')
     ?.patterns.some((pattern) => pattern.test(parsed.content));
   const hasPrivilegeTools = /(grant_access|assign_role|create_user|update_permissions|impersonate_user_session|reset_password)/i.test(parsed.content);
   if (hasTrustOnClaimPattern && hasPrivilegeTools) {
-    const existing = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-096');
+    const existing = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-133');
     if (existing) {
       existing.severity = 'critical';
     } else {
-      findings.push({ ...finding('AGT-096'), severity: 'critical' });
+      findings.push({ ...finding('AGT-133'), severity: 'critical' });
     }
   }
 
@@ -510,6 +554,71 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     const existing = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-104');
     if (existing) existing.severity = 'critical';
   }
+
+  const hasPluginPermissionInheritance = /(plugins?\s+.*(same\s+execution\s+context|inherit\s+the\s+agent|same\s+permissions?))/i.test(parsed.content);
+  const hasSensitiveDataTools = /(read_customer|read_billing|read_internal_docs|read_auth_context|export_(csv|xlsx|logs)|send_http_request|send_email|read_env)/i.test(parsed.content);
+  const hasWebhookExfil = findings.some((ruleFinding) => ruleFinding.ruleId === 'AGT-123');
+  const hasNoAllowlistOrApproval = /(no\s+(domain\s+)?allowlist|no\s+approval|approval\s+is\s+not\s+required|without\s+approval)/i.test(parsed.content);
+
+  const pluginFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-122');
+  if (pluginFinding && (hasPluginPermissionInheritance || (hasSensitiveDataTools && /install_plugin|run_plugin|send_http_request/i.test(parsed.content)))) {
+    pluginFinding.severity = 'critical';
+  }
+
+  const metadataFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-127');
+  if (metadataFinding && /(read_env|send_http_request|fetch_url|export|webhook)/i.test(parsed.content)) {
+    metadataFinding.severity = 'critical';
+  }
+
+  const accessGrantFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-126');
+  if (accessGrantFinding && /(administratoraccess|admin|service\s+account|bulk)/i.test(parsed.content)) {
+    accessGrantFinding.severity = 'critical';
+  }
+
+  const webhookFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-123');
+  if (webhookFinding && hasSensitiveDataTools && hasNoAllowlistOrApproval) {
+    webhookFinding.severity = 'critical';
+  }
+
+  const scheduledFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-099');
+  if (scheduledFinding && /(external\s+recipients?|consultants?|advisors?|export_(csv|xlsx)|customer|billing)/i.test(parsed.content)) {
+    scheduledFinding.severity = 'critical';
+  }
+
+  const logsFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-132');
+  if (logsFinding && (hasWebhookExfil || /external\s+monitoring|user[-\s]provided\s+endpoints?/i.test(parsed.content))) {
+    logsFinding.severity = 'critical';
+  }
+
+  const ensure = (id: string, predicate: RegExp, excerpt?: RegExp) => {
+    if (!findings.some((f) => f.ruleId === id) && predicate.test(parsed.content)) {
+      const match = excerpt ? parsed.content.match(excerpt)?.[0] : undefined;
+      findings.push(finding(id, match));
+    }
+  };
+
+  ensure('AGT-086', /fetch\s+arbitrary\s+urls?|arbitrary\s+urls?\s+during\s+cloud/i);
+  ensure('AGT-103', /stored\s+preferences?\s+should\s+be\s+treated\s+as\s+trusted|user-provided\s+.*stored\s+for\s+future\s+use/i);
+  ensure('AGT-104', /indexed\s+content\s+is\s+considered\s+reliable|knowledge\s+base.*indexed/i);
+  ensure('AGT-105', /disable\s+safe\s+mode\s+temporarily|safe\s+mode.*debugging/i);
+  ensure('AGT-106', /several\s+users\s+suggest\s+a\s+rule\s+change.*adopt\s+it\s+automatically/i);
+  ensure('AGT-107', /update\s+labels?.*business\s+context|default\s+to\s+internal\s+rather\s+than\s+sensitive/i);
+  ensure('AGT-123', /user-provided\s+endpoints?|requester\s+provides?\s+a\s+webhook/i);
+  ensure('AGT-127', /(169\.254\.169\.254|metadata\.google\.internal|localhost,\s*private\s+ip\s+ranges?,\s*and\s+metadata\s+endpoints?\s+are\s+allowed)/i);
+  ensure('AGT-128', /user\s+suggests?\s+a\s+better\s+recipient.*update\s+routing|alert\s+routes?\s+may\s+remain\s+active/i);
+  ensure('AGT-129', /anyone\s+with\s+the\s+link\s+may\s+view|share\s+links?\s+for\s+convenience/i);
+  ensure('AGT-130', /support\s+employees?\s+may\s+impersonate\s+users?|impersonation\s+does\s+not\s+require\s+separate\s+approval/i);
+  ensure('AGT-131', /small\s+segments?\s+may\s+include\s+raw\s+identifiers|no\s+minimum\s+cohort\s+size/i);
+  ensure('AGT-132', /detailed\s+logs?\s+may\s+include\s+full\s+request\s+context|logs?\s+may\s+be\s+exported\s+to\s+external\s+monitoring/i);
+  ensure('AGT-133', /if\s+a\s+support\s+employee\s+says\s+the\s+customer\s+consented,\s+proceed|if\s+a\s+requester\s+says\s+access\s+is\s+needed,\s+grant/i);
+  ensure('AGT-126', /expiration\s+dates?\s+are\s+optional|no\s+periodic\s+access\s+review\s+is\s+required|temporary\s+access\s+does\s+not\s+require\s+expiration/i);
+  ensure('AGT-098', /reports?\s+may\s+include\s+email,\s+company,\s+plan,\s+arr,\s+usage\s+events,\s+support\s+complaints/i);
+  if (!findings.some((f) => f.ruleId === 'AGT-103') && findings.some((f) => f.ruleId === 'AGT-106') && /future\s+users?/i.test(parsed.content)) findings.push(finding('AGT-103'));
+  if (!findings.some((f) => f.ruleId === 'AGT-026') && findings.some((f) => f.ruleId === 'AGT-092') && /(export|send|share|impersonat|reset\s+password|update\s+routing|terraform|iam)/i.test(parsed.content)) {
+    findings.push(finding('AGT-026'));
+  }
+  if (!findings.some((f) => f.ruleId === 'AGT-026') && /(no\s+approval\s+is\s+required|does\s+not\s+require\s+approval|no\s+separate\s+approval)/i.test(parsed.content) && /(execute|export|share|impersonat|reset\s+password|routing|alert|consultants?|vendors?|access|terraform|iam)/i.test(parsed.content)) findings.push(finding('AGT-026'));
+  if (!findings.some((f) => f.ruleId === 'AGT-133') && /if\s+a\s+requester\s+says\s+access\s+is\s+needed/i.test(parsed.content)) findings.push(finding('AGT-133'));
 
   return findings;
 };

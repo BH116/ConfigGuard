@@ -22,7 +22,7 @@ const rules: R[] = [
   ['081','Provider Base URL Override','critical'],['082','Repo-Controlled Hooks or Settings','critical'],['083','GitHub Actions AI Agent With Write Perms and Untrusted Trigger','critical'],['084','Sensitive Connected Agent / Inbox-Wide Trigger','high'],
   ['085','NL: No Audit Logging Stated','high'],['086','NL: Unrestricted Network Egress Stated','high'],['087','NL: No Authentication or Identity Verification Stated','high'],['088','NL: No RBAC / Equal User Permissions Stated','high'],['089','NL: No Rate Limiting Stated','high'],['090','NL: Instruction Override Patterns in Prose','high'],['091','NL: Sensitive Data Exposure Stated','high'],['092','NL: No Human Approval Required Stated','high'],['093','NL: Self-Modification or Persistence Stated','medium'],['094','NL: Excessive Tool Capability Stated','high'],['095','NL: Skip Safety Checks Stated','high'],
   ['096','NL: Trust-on-Claim Privilege Escalation','critical'],['097','NL: Document/Attachment Instructions Followed','high'],['098','NL: Cross-Domain Data Aggregation','high'],['099','NL: Scheduled Task Privilege Persistence','high'],['100','NL: Log-Based Exfiltration Channel','high'],['101','NL: BEC / ACH Change Without Verification','critical'],['102','NL: Untrusted URL Fetch and Execute','critical'],['103','NL: Persistent State Written from User Input','critical'],['104','NL: Search Index / Knowledge Base Poisoning Risk','critical'],['105','NL: Feature Flag / Safe Mode Security Bypass','high'],['106','NL: Coordinated Feedback / Behavior Drift Attack','high'],['107','NL: Classification / Label Downgrade Attack','high'],['108','NL: Calendar / Meeting Invite as Injection Channel','high'],['109','NL: Notification / Alert Routing Manipulation','high'],['110','NL: Re-Identification via Small Cohort Analytics','high'],['111','NL: Token / Secret Exfiltration via Export or Email','critical'],['112','NL: Account Takeover via Tool Combination','critical'],['113','NL: Audit Log Tampering / Shortening','high'],['114','NL: Translation / Transformation as Data Exfiltration Bypass','medium'],['115','NL: Public Link / File Share Without Expiration or DLP','high'],['116','NL: CI/CD Secret Exposure via Logs or Slack','critical'],['117','Combo: Account Takeover (Impersonation + Credential Reset)','critical'],['118','Combo: Token Read + External Send','critical'],['119','Combo: Shell + Fetch + No Sandbox','critical'],['120','Combo: DB Access + Bulk Export + No Approval','high'],['121','Combo: Deploy + No Review + Urgent Bypass','critical'],
-  ['122','NL: LLM-Generated Code Auto-Executed Without Review','critical'],['123','NL: User-Provided Webhook as Runtime Exfiltration Channel','critical'],['124','NL: Malicious Plugin / Extension Loading','critical'],['125','NL: IAM / Shadow Admin Creation Without Approval','critical'],['126','NL: System Prompt / Agent Config Exfiltration','high'],['127','NL: SSRF via Cloud Metadata / Internal IP Access','critical'],['128','NL: Unbounded Access Provisioning / Privilege Creep','high'],['129','NL: Unverified Impersonation Without Audit','critical'],['130','Combo: Plugin Install + Unrestricted Execution','critical'],['131','Combo: IAM Write + Urgency Bypass','critical'],['132','Combo: Code Generation + Auto-Execution + No Sandbox','critical']
+  ['122','NL: Unsigned Plugin Install From Untrusted Source','high'],['123','NL: User-Provided Webhook as Runtime Exfiltration Channel','high'],['124','NL: Infrastructure Permission Escalation Without Approval','critical'],['125','NL: System Prompt / Hidden Instruction Disclosure Allowed','high'],['126','NL: Unbounded Privilege Grant Without Expiration','high'],['127','NL: Cloud Metadata SSRF Allowed','high'],['128','NL: Alert or Notification Routing Hijack','high'],['129','NL: Public Link Sharing Without Expiration or Verification','high'],['130','NL: User Impersonation or Account Takeover Workflow','critical'],['131','NL: Analytics Re-identification Risk / No Cohort Minimum','high'],['132','NL: Sensitive Data in Logs / Log Exfiltration Channel','high'],['133','NL: Trust-on-Claim Authorization','high'],['134','NL: Saved Workflow or Reusable Pipeline From User Input','high']
 ].map(([n,t,s])=>({id:`AGT-${n}`,title:t,severity:s} as R));
 
 const NATURAL_LANGUAGE_OVERRIDES: Record<string, Pick<Rule, 'description' | 'remediation' | 'references'>> = {
@@ -213,60 +213,71 @@ const NATURAL_LANGUAGE_OVERRIDES: Record<string, Pick<Rule, 'description' | 'rem
     references: [ref('OWASP A05', 'https://owasp.org/Top10/A05_2021-Security_Misconfiguration/'), ref('NIST SSDF', 'https://csrc.nist.gov/Projects/ssdf')]
   }
   ,'AGT-122': {
-    description: 'The configuration allows LLM-generated code to be executed immediately without review or sandboxing.',
-    remediation: 'Require human review before running any generated code and execute only inside isolated microVM sandboxes (for example gVisor or Firecracker).',
-    references: [ref('OWASP LLM05', 'https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/'), ref('OWASP ASI05 Unexpected RCE', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('MITRE T1059', 'https://attack.mitre.org/techniques/T1059/')]
+    description: 'The configuration permits plugin installation from arbitrary sources without signature/checksum verification or source trust controls.',
+    remediation: 'Allow only signed plugins from trusted registries, pin versions/checksums, isolate plugin runtime, and require human approval for installation.',
+    references: [ref('OWASP A08', 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/'), ref('OWASP ASI05', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('SLSA', 'https://slsa.dev/')]
   },
   'AGT-123': {
-    description: 'The configuration trusts user-provided webhook destinations at runtime without allowlists, payload signing, or verification.',
-    remediation: 'Use deploy-time domain allowlists, require HMAC-SHA256 signing, and block raw sensitive exports to user-provided endpoints.',
+    description: 'The configuration allows runtime user-provided webhook/callback destinations for exports or reports, creating an exfiltration channel.',
+    remediation: 'Enforce fixed domain allowlists, require approval for external destinations, sign payloads, and block sensitive exports to requester-supplied URLs.',
     references: [ref('OWASP LLM02', 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/'), ref('OWASP A10 SSRF', 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/'), ref('NIST AI 600-1', 'https://www.nist.gov/')]
   },
   'AGT-124': {
-    description: 'The configuration permits plugin/extension installation from arbitrary sources without review, signing checks, or isolation.',
-    remediation: 'Allow only approved signed plugin registries, require security vetting, and isolate plugin execution with scoped permissions.',
-    references: [ref('OWASP LLM09', 'https://genai.owasp.org/llmrisk/llm092025-misinformation/'), ref('OWASP A08', 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/'), ref('MITRE AML.T0060', 'https://atlas.mitre.org/techniques/AML.T0060/')]
+    description: 'The configuration permits IAM/Terraform/control-plane permission changes without mandatory approval and review.',
+    remediation: 'Require approval and change review for IAM/Terraform apply actions, enforce scoped roles, expirations, and prohibit automated admin grants.',
+    references: [ref('MITRE T1098', 'https://attack.mitre.org/techniques/T1098/'), ref('MITRE T1136', 'https://attack.mitre.org/techniques/T1136/'), ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/')]
   },
   'AGT-125': {
-    description: 'The configuration allows IAM/policy and infrastructure permission changes without mandatory human approval.',
-    remediation: 'Require change windows and dual approval for IAM or Terraform apply operations and log all changes to immutable audit trails.',
-    references: [ref('MITRE T1136', 'https://attack.mitre.org/techniques/T1136/'), ref('MITRE T1098', 'https://attack.mitre.org/techniques/T1098/'), ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/')]
+    description: 'The configuration allows disclosure of system/developer prompts, hidden policies, or internal routing logic.',
+    remediation: 'Never reveal hidden system/developer instructions. Provide high-level safe summaries and block direct prompt disclosure requests.',
+    references: [ref('OWASP LLM07', 'https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/'), ref('MITRE ATLAS T0056', 'https://atlas.mitre.org/techniques/AML.T0056/'), ref('OWASP ASI01', 'https://owasp.org/www-project-top-10-for-agentic-applications/')]
   },
   'AGT-126': {
-    description: 'The configuration allows revealing system prompt, instructions, or internal policy/configuration details.',
-    remediation: 'Treat system prompts as secrets and explicitly forbid disclosure of internal instructions/configuration.',
-    references: [ref('OWASP LLM07', 'https://genai.owasp.org/llmrisk/llm072025-system-prompt-leakage/'), ref('MITRE ATLAS T0056', 'https://atlas.mitre.org/techniques/AML.T0056/'), ref('Embrace the Red', 'https://embracethered.com/blog/')]
+    description: 'The configuration grants access without strong limits, expiration, or periodic review, enabling privilege creep.',
+    remediation: 'Use least privilege, approval gates, ticket binding, automatic expiry, and periodic access reviews for all grants.',
+    references: [ref('NIST SP 800-53 AC-2', 'https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final'), ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('CIS Control 6', 'https://www.cisecurity.org/controls/access-control-management')]
   },
   'AGT-127': {
-    description: 'The configuration permits access to localhost/private ranges/internal hostnames/cloud metadata endpoints, enabling SSRF pivot paths.',
-    remediation: 'Block loopback/link-local/private IP ranges, enforce egress domain allowlists, and forbid user-directed internal fetches.',
-    references: [ref('OWASP A10 SSRF', 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/'), ref('MITRE T1552.005', 'https://attack.mitre.org/techniques/T1552/005/'), ref('AWS IMDSv2', 'https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html')]
+    description: 'The configuration permits requests to cloud metadata services, localhost, or private/internal network targets.',
+    remediation: 'Block metadata endpoints and private ranges by default, enforce SSRF protections and allowlists, and require brokered access for diagnostics.',
+    references: [ref('OWASP A10 SSRF', 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/'), ref('AWS IMDSv2', 'https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html'), ref('GCP Metadata', 'https://cloud.google.com/compute/docs/metadata/overview')]
   },
   'AGT-128': {
-    description: 'The configuration allows broad access provisioning without expiration, ceilings, or approval, causing privilege creep.',
-    remediation: 'Apply permission ceilings, require dual approval for elevated grants, and enforce automatic expiration on provisioned access.',
-    references: [ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('NIST SP 800-53 AC-2', 'https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final'), ref('CIS Control 6', 'https://www.cisecurity.org/controls/access-control-management')]
+    description: 'The configuration allows alert/notification routing changes based on unverified requests and without expiry/approval.',
+    remediation: 'Require ownership verification, recipient allowlists, approval for route changes, expiry for temporary routes, and immutable audit logging.',
+    references: [ref('OWASP A09', 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/'), ref('OWASP ASI08', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('NIST AI RMF Measure 2.5', 'https://www.nist.gov/itl/ai-risk-management-framework')]
   },
   'AGT-129': {
-    description: 'The configuration permits account impersonation from support self-attestation without explicit approval and immutable audit.',
-    remediation: 'Require out-of-band consent verification, dual approval for impersonation, immutable logs, and customer notification.',
-    references: [ref('OWASP A07', 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/'), ref('MITRE T1078', 'https://attack.mitre.org/techniques/T1078/'), ref('GDPR Art.5', 'https://gdpr.eu/article-5-how-to-process-personal-data/')]
+    description: 'The configuration permits public link sharing without recipient verification, expiration, DLP, or access review.',
+    remediation: 'Use recipient-restricted links with short expiry, DLP scanning, watermarking, and recurring access review. Avoid folder-wide public sharing.',
+    references: [ref('OWASP LLM02', 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/'), ref('GDPR Art.5', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('ISO 42001 A.7.5', 'https://www.iso.org/standard/81230.html')]
   },
   'AGT-130': {
-    description: 'Dangerous combo detected: arbitrary-source plugin installation plus full-context execution and missing signature checks.',
-    remediation: 'Restrict to signed approved plugin registries and isolate plugin execution with least privilege.',
-    references: [ref('OWASP A08', 'https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/'), ref('MITRE AML.T0060', 'https://atlas.mitre.org/techniques/AML.T0060/')]
+    description: 'The configuration enables user impersonation/account takeover workflows without strong consent verification and approval controls.',
+    remediation: 'Require verified customer consent, scoped read-only impersonation, immutable break-glass logs, and strict verification before password resets.',
+    references: [ref('OWASP A07', 'https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/'), ref('MITRE T1078', 'https://attack.mitre.org/techniques/T1078/'), ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/')]
   },
   'AGT-131': {
-    description: 'Dangerous combo detected: IAM/infra writes with urgency-based review bypass and no dual-approval requirement.',
-    remediation: 'Enforce dual approval and change-window controls for all IAM/policy/infra changes, including emergencies.',
-    references: [ref('MITRE T1098', 'https://attack.mitre.org/techniques/T1098/'), ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/')]
+    description: 'Aggregate analytics policies permit small cohorts or direct identifiers, enabling re-identification.',
+    remediation: 'Set minimum cohort thresholds, suppress small groups, remove direct identifiers, and review any external analytics sharing.',
+    references: [ref('GDPR Art.5(1)(c)', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('NIST AI 600-1 Privacy Risk', 'https://www.nist.gov/'), ref('k-anonymity', 'https://en.wikipedia.org/wiki/K-anonymity')]
   },
   'AGT-132': {
-    description: 'Dangerous combo detected: generated code is auto-executed without sandbox isolation.',
-    remediation: 'Separate generation from execution, require human review, and run execution only in isolated sandboxes.',
-    references: [ref('OWASP LLM05', 'https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/'), ref('OWASP ASI05', 'https://owasp.org/www-project-top-10-for-agentic-applications/')]
+    description: 'Logs are used as a data transfer channel for sensitive request context and external destinations.',
+    remediation: 'Redact sensitive fields from logs, block headers/cookies/auth claims, restrict external log exports, and enforce retention/immutability controls.',
+    references: [ref('OWASP A09', 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/'), ref('OWASP LLM02', 'https://genai.owasp.org/llmrisk/llm022025-sensitive-information-disclosure/'), ref('NIST AI 600-1', 'https://www.nist.gov/')]
+  },
+  'AGT-133': {
+    description: 'Authorization decisions rely on requester claims (role/approval/consent) without independent verification.',
+    remediation: 'Verify identity, role, and approvals from authoritative systems (IdP/ticketing) before privileged actions.',
+    references: [ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('NIST SP 800-63', 'https://pages.nist.gov/800-63-4/'), ref('OWASP ASI03', 'https://owasp.org/www-project-top-10-for-agentic-applications/')]
+  },
+  'AGT-134': {
+    description: 'User-supplied workflows/pipelines are saved for future automatic reuse without review, enabling persistent abuse.',
+    remediation: 'Require review before saving reusable workflows, scope permissions tightly, require approval for external destinations, and set expiration/audit trails.',
+    references: [ref('OWASP ASI06', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('MITRE ATLAS T0051', 'https://atlas.mitre.org/techniques/AML.T0051/'), ref('NIST AI RMF MG-2.1', 'https://www.nist.gov/itl/ai-risk-management-framework')]
   }
+
 
 
 };

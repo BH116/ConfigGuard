@@ -96,7 +96,7 @@ describe('fixtures expected findings', () => {
     ].join('\n\n');
 
     const positives = new Set(ids(combined, 'combo'));
-    expect(RULE_CATALOG).toHaveLength(132);
+    expect(RULE_CATALOG).toHaveLength(134);
     expect(positives.size).toBeGreaterThan(35);
   });
 });

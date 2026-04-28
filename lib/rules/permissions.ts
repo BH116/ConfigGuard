@@ -14,7 +14,7 @@ export const runPermissionRules = (parsed: ParsedConfig): Finding[] => {
     f.push(finding('AGT-007', 'Missing one or more secret deny-path patterns'));
   }
 
-  const networkNeedles = ['webfetch', 'curl', 'wget', 'httpx', 'aiohttp', 'invoke-webrequest', 'iwr', 'socat', 'ncat', 'openssl s_client', '169.254.169.254'];
+  const networkNeedles = ['webfetch', 'curl', 'wget', 'httpx', 'aiohttp', 'invoke-webrequest', 'iwr', 'socat', 'ncat', 'openssl s_client', '169.254.169.254', 'send_http_request', 'fetch_url'];
   const hasNetworkTool = includesAny(t, networkNeedles);
   if (hasNetworkTool && !includesAny(t, ['domain:', 'allowed_domains', 'egress_allowlist', 'network.domains', 'source_allowlist'])) f.push(finding('AGT-008', 'Network capability without explicit domain allowlist'));
 

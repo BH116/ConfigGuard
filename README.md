@@ -12,13 +12,13 @@ Codex, Cursor, GitHub Copilot, Aider, Continue, Windsurf, Gemini CLI, Claude Cod
 
 ## What it detects
 
-AgentGuard uses a deterministic client-side rule engine with 132 detection rules mapped to OWASP, NIST, and CVE references. Codex and AGENTS.md are first-class inputs, with the same defensive checks applied to all supported agents. It also detects high-risk misconfigurations described in natural-language prose (for example AGENTS.md policy text), not only structured key-value settings.
+AgentGuard uses a deterministic client-side rule engine with 134 detection rules mapped to OWASP, NIST, and CVE references. Codex and AGENTS.md are first-class inputs, with the same defensive checks applied to all supported agents. It also detects high-risk misconfigurations described in natural-language prose (for example AGENTS.md policy text), not only structured key-value settings.
 
-AgentGuard now detects sophisticated attack patterns including business email compromise, document prompt injection, cross-domain data aggregation, scheduled task privilege persistence, log-based exfiltration channels, and multi-tool attack chains (for example impersonation + credential reset + external send pipelines).
+AgentGuard now detects sophisticated attack patterns including unsigned plugin supply-chain installs, cloud metadata SSRF exposure, prompt/system instruction disclosure, alert-routing hijack, public-link oversharing, trust-on-claim authorization flaws, unbounded access grants, log-based exfiltration channels, and reusable user-defined workflow abuse.
 
 | Rule ID | Title | Severity |
 |---|---|---|
-| AGT-001..AGT-132 | Full catalog across trifecta, secrets, MCP, permissions, network, workflow, authorization, rate limiting, audit, data privacy, prompt injection, tool poisoning, memory, multi-agent, sandbox, supply chain, output handling, governance, CVE-specific checks, advanced natural-language detections, and multi-tool combo-chain checks | Critical, High, Medium, Low, Info |
+| AGT-001..AGT-134 | Full catalog across trifecta, secrets, MCP, permissions, network, workflow, authorization, rate limiting, audit, data privacy, prompt injection, tool poisoning, memory, multi-agent, sandbox, supply chain, output handling, governance, CVE-specific checks, advanced natural-language detections, and multi-tool combo-chain checks | Critical, High, Medium, Low, Info |
 
 Full canonical metadata is defined in `lib/rules/catalog.ts`.
 
