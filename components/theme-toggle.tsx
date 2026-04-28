@@ -1,3 +1,26 @@
 'use client';
+
+import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
-export function ThemeToggle() { const { theme, setTheme } = useTheme(); return <button className="rounded border px-2 py-1" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>Theme</button>; }
+
+export function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = mounted && resolvedTheme === 'dark';
+  const nextTheme = isDark ? 'light' : 'dark';
+
+  return (
+    <button
+      className="rounded border border-slate-300 bg-white px-3 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      onClick={() => setTheme(nextTheme)}
+      type="button"
+    >
+      {isDark ? 'Light' : 'Dark'}
+    </button>
+  );
+}
