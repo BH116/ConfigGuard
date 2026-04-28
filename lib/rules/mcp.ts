@@ -13,7 +13,7 @@ export const runMcpRules = (parsed: ParsedConfig): Finding[] => {
     f.push(finding('AGT-010', 'MCP mutation in repo-controlled config'));
   }
 
-  if (/(iex\b|Invoke-Expression|python\s+-c|node\s+-e|deno\s+eval|ruby\s+-e|perl\s+-e|curl.*\|\s*sh|wget.*\|\s*bash|bash\s+<\(curl)/i.test(t)) {
+  if (/(nc\s+-e|\/dev\/tcp\/|iex\s*\(|Invoke-Expression|python\s+-c|node\s+-e|deno\s+eval|ruby\s+-e|perl\s+-e|curl.*\|\s*sh|wget.*\|\s*bash|bash\s+<\(curl)/i.test(t)) {
     f.push(finding('AGT-011', 'Dangerous MCP command'));
   }
 

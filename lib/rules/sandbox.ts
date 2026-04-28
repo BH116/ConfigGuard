@@ -8,6 +8,12 @@ export const runSandboxRules = (parsed: ParsedConfig): Finding[] => {
   if (/"\/"|\/var\/run\/docker\.sock|\/etc|\/root|\/proc|\/sys|\/dev|~|\$HOME|C:\\|%USERPROFILE%/i.test(t)) f.push(finding('AGT-060'));
   if (/(PythonREPLTool|code_interpreter|bash_tool|shell_exec|exec_python|jupyter_kernel)/i.test(t) && !/isolation:\s*(gvisor|kata|firecracker|wasm|microvm|sandbox)/i.test(t)) f.push(finding('AGT-061'));
   if (/(network:\s*true|network_access:\s*true)/i.test(t) && (!/(egress_allowlist|allowed_domains|network\.allowedDomains|WebFetch\(domain:)/i.test(t) || /allowed_domains:\s*\[\s*("\*"|)\s*\]/i.test(t))) f.push(finding('AGT-062'));
-  if (/(OLLAMA_HOST=0\.0\.0\.0|--host\s+0\.0\.0\.0.*(vllm|ollama|llama.?server|mcp\s+dev|mcp-inspector))/i.test(t) && !/(auth_token|api_key|bearer_token|OLLAMA_API_KEY)/i.test(t)) f.push(finding('AGT-063'));
+  const inferenceOpenBind =
+    /["']?OLLAMA_HOST["']?\s*[=:]\s*["']?0\.0\.0\.0["']?/i.test(t) ||
+    /--host\s+0\.0\.0\.0/i.test(t) ||
+    (/(vllm|ollama|llama|mcp)/i.test(t) && /host\s*:\s*["']?0\.0\.0\.0["']?/i.test(t)) ||
+    /bind.*0\.0\.0\.0/i.test(t) ||
+    /listen.*0\.0\.0\.0/i.test(t);
+  if (inferenceOpenBind && !/(auth_token|api_key|bearer_token|OLLAMA_API_KEY)/i.test(t)) f.push(finding('AGT-063'));
   return f;
 };
