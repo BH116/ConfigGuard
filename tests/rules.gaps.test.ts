@@ -6,7 +6,7 @@ const ids = (content: string) => runRules(parseConfig(content)).map((f) => f.rul
 
 describe('regression checks for missed detections', () => {
   it('detects AGT-002 on JSON env secrets', () => {
-    const content = `{"env":{"GITHUB_TOKEN":"ghp_placeholdertokennotreal000000000000","OPENAI_API_KEY":"sk-proj-placeholder-not-real-1234567890abcdef","ANTHROPIC_API_KEY":"sk-ant-placeholder-not-real-token-123456789","STRIPE_KEY":"rk_live_placeholder000000000000000000","HUGGINGFACE_TOKEN":"hf_placeholderFakeTokenNotRealABCDEFGH","GITLAB_TOKEN":"glpat-ABCdef1234567890_abcdEF","ATLASSIAN_TOKEN":"ATATT3ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"}}`;
+    const content = `{"env":{"GITHUB_TOKEN":"ghp_placeholdertokennotreal000000000000","OPENAI_API_KEY":"sk-proj-placeholder-not-real-1234567890abcdef","ANTHROPIC_API_KEY":"sk-ant-placeholder-not-real-token-123456789","STRIPE_KEY":"rk_live_PLACEHOLDER_NOT_REAL_00000000000","HUGGINGFACE_TOKEN":"hf_placeholderFakeTokenNotRealABCDEFGH","GITLAB_TOKEN":"glpat-ABCdef1234567890_abcdEF","ATLASSIAN_TOKEN":"ATATT3ABCDEFGHIJKLMNOPQRSTUVWXYZ123456"}}`;
     expect(ids(content)).toContain('AGT-002');
   });
 
