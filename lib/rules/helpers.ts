@@ -31,6 +31,19 @@ export const firstMatchingLine = (content: string, needles: string[]) => {
   return undefined;
 };
 
+
+export const shannonEntropy = (s: string): number => {
+  const counts: Record<string, number> = {};
+  for (const c of s) counts[c] = (counts[c] || 0) + 1;
+  const len = s.length;
+  let entropy = 0;
+  for (const count of Object.values(counts)) {
+    const p = count / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+};
+
 export const hasInvisibleUnicode = (text: string): boolean => {
   return /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u{E0000}-\u{E007F}\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]/u.test(text);
 };

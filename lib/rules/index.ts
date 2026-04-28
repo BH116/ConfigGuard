@@ -19,6 +19,7 @@ import { runSupplyChainRules } from './supplychain';
 import { runOutputHandlingRules } from './outputhandling';
 import { runGovernanceRules } from './governance';
 import { runCveSpecificRules } from './cvespecific';
+import { runNaturalLanguageRules } from './naturallanguage';
 import { RULE_CATALOG } from './catalog';
 
 export const runRules = (parsed: ParsedConfig): Finding[] => {
@@ -42,7 +43,8 @@ export const runRules = (parsed: ParsedConfig): Finding[] => {
     ...runSupplyChainRules(parsed),
     ...runOutputHandlingRules(parsed),
     ...runGovernanceRules(parsed),
-    ...runCveSpecificRules(parsed)
+    ...runCveSpecificRules(parsed),
+    ...runNaturalLanguageRules(parsed)
   ];
   return all.filter((f, idx) => all.findIndex((x) => x.ruleId === f.ruleId) === idx);
 };

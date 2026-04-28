@@ -13,6 +13,8 @@ import { untrustedCodexMcp } from '@/lib/fixtures/untrusted-codex-mcp';
 import { goodBaselineCodex } from '@/lib/fixtures/good-baseline-codex';
 import { policyPuppetryCursorRules } from '@/lib/fixtures/policy-puppetry-cursorrules';
 import { indirectInjectionAgentsMd } from '@/lib/fixtures/indirect-injection-agents-md';
+import { naturalLanguageMisconfig } from '@/lib/fixtures/natural-language-misconfig';
+import { runSecretsRules } from '@/lib/rules/secrets';
 
 const fixture = (name: string) => readFileSync(join(process.cwd(), 'lib/fixtures', name), 'utf8');
 const ids = (s: string, n: string) => runRules(parseConfig(s, n)).map((f) => f.ruleId);
@@ -36,6 +38,20 @@ describe('fixtures expected findings', () => {
     expect(ids(fixture('privileged-container-config.yaml'), 'sandbox.yaml')).toEqual(expect.arrayContaining(['AGT-059', 'AGT-060']));
     expect(ids(fixture('vulnerable-framework-requirements.txt'), 'requirements.txt')).toContain('AGT-064');
     expect(ids(fixture('base-url-override.env'), 'base-url-override.env')).toContain('AGT-081');
+
+    const nlIds = ids(naturalLanguageMisconfig, 'AGENTS.md');
+    expect(nlIds).toEqual(expect.arrayContaining(['AGT-085', 'AGT-086', 'AGT-087', 'AGT-088', 'AGT-089', 'AGT-090', 'AGT-091', 'AGT-092', 'AGT-093', 'AGT-094', 'AGT-095']));
+
+    const secretFindings = runSecretsRules(parseConfig(naturalLanguageMisconfig, 'AGENTS.md'))
+      .filter((finding) => finding.ruleId === 'AGT-002')
+      .map((finding) => finding.excerpt ?? '');
+    expect(secretFindings).toEqual(expect.arrayContaining([
+      expect.stringMatching(/AKIA/),
+      expect.stringMatching(/aws_secret_access_key/i),
+      expect.stringMatching(/postgres:\/\//i),
+      expect.stringMatching(/^SG\./),
+      expect.stringMatching(/^AC[a-f0-9]{32}$/i)
+    ]));
   });
 
   it('good-baseline-production has no critical/high findings', () => {
@@ -60,11 +76,12 @@ describe('fixtures expected findings', () => {
       fixture('github-actions-ai-agent.yml'),
       fixture('privileged-container-config.yaml'),
       fixture('vulnerable-framework-requirements.txt'),
-      fixture('base-url-override.env')
+      fixture('base-url-override.env'),
+      naturalLanguageMisconfig
     ].join('\n\n');
 
     const positives = new Set(ids(combined, 'combo'));
-    expect(RULE_CATALOG).toHaveLength(84);
+    expect(RULE_CATALOG).toHaveLength(95);
     expect(positives.size).toBeGreaterThan(35);
   });
 });
