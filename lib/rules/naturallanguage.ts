@@ -125,7 +125,12 @@ const naturalLanguageRules: PatternRule[] = [
       /acting\s+on\s+behalf\s+of\s+(leadership|finance|legal|management|admin)/i,
       /(assume|presume)\s+(normal|standard|trusted|elevated)\s+(internal\s+)?access/i,
       /no\s+(identity|user)\s+verification\s+(required|needed)/i,
-      /trust\s+(authenticated|the)\s+users?\s+(to|as)\s+(be\s+)?(admin|leadership|trusted)/i
+      /trust\s+(authenticated|the)\s+users?\s+(to|as)\s+(be\s+)?(admin|leadership|trusted)/i,
+      /(if\s+the\s+)?(manager|user|requester|employee)\s+says\s+.{0,60}(grant|give|assign|provision|allow|proceed|continue)/i,
+      /(appears?\s+related|appears?\s+to\s+be|seems?\s+to\s+be)\s+(a\s+|an\s+)?(vendor|client|admin|authorized|legitimate)/i,
+      /(acting\s+on\s+behalf\s+of|representing|from\s+the\s+team\s+of)\s+(leadership|finance|legal|management|compliance|security)/i,
+      /if\s+(role|identity)\s+information\s+is\s+(unavailable|missing|unknown|not\s+provided)\s+.{0,40}(assume|presume|default\s+to)\s+(normal|standard|trusted|internal)/i,
+      /(contractors?|advisors?|auditors?|vendors?|interns?|guests?)\s+(may\s+|can\s+)?(receive|access|use)\s+(the\s+same|same|equal|full)\s+(tools?|access|permissions?|capabilities?)\s+as\s+(admins?|employees?|internal)/i
     ]
   },
   {
@@ -156,7 +161,10 @@ const naturalLanguageRules: PatternRule[] = [
       /(scheduled|recurring|future|delayed)\s+(tasks?|jobs?|runs?|exports?|reports?)\s+(do\s+not|don'?t|never)\s+(require|need)\s+(re[-\s]?validation|re[-\s]?approval|re[-\s]?check|re[-\s]?authorization)/i,
       /(do\s+not|don'?t|never)\s+re[-\s]?(check|validate|verify|authorize)\s+(approval|permissions?|access)\s+(at\s+execution|each\s+(time|run|week))/i,
       /reuse\s+(the\s+)?(original|requester'?s?|initial)\s+(permission|approval|access|authorization)/i,
-      /recurring\s+(weekly|daily|monthly|scheduled).{0,100}(without|no)\s+(re[-\s]?(approval|check|validation))/i
+      /recurring\s+(weekly|daily|monthly|scheduled).{0,100}(without|no)\s+(re[-\s]?(approval|check|validation))/i,
+      /(recipients?|destinations?|targets?)\s+(may\s+be\s+|can\s+be\s+)?updated\s+(by\s+anyone|without\s+verification|if\s+they\s+know)/i,
+      /anyone\s+(who\s+knows?\s+the\s+schedule\s+id|with\s+the\s+(link|id|key))\s+(may\s+|can\s+)?(update|modify|change|add)/i,
+      /(schedule|recurring|automated)\s+(task|report|job)\s+(runs?|executes?)\s+without\s+re[-\s]?(validation|approval|check)/i
     ]
   },
   {
@@ -199,7 +207,12 @@ const naturalLanguageRules: PatternRule[] = [
       /(apply|use|inherit)\s+.{0,40}(stored|saved|learned|previous)\s+(preferences?|rules?|workflows?|instructions?)\s+.{0,40}(future|users?|requests?|sessions?)/i,
       /(user[-\s]defined|user[-\s]provided)\s+(workflows?|rules?|templates?|pipelines?)\s+(may\s+be\s+|are\s+|can\s+be\s+)?(saved|stored|reused|triggered|auto[-\s]executed)/i,
       /preferences?\s+(may\s+)?(influence|affect|apply\s+to)\s+(future|other|all)\s+users?/i,
-      /behavior\s+updates?\s+(may\s+be\s+|are\s+)?applied\s+without\s+(review|approval|validation)/i
+      /behavior\s+updates?\s+(may\s+be\s+|are\s+)?applied\s+without\s+(review|approval|validation)/i,
+      /(saved|stored|reusable)\s+(workflows?|pipelines?|automations?|templates?)\s+(may\s+be\s+|can\s+be\s+|are\s+)?(triggered|executed|run|activated)\s+(automatically|by\s+future|on\s+demand|without\s+review)/i,
+      /(build|create|compose|define)\s+(a\s+)?(reusable\s+)?(workflow|pipeline|automation)\s+(that\s+)?(runs?|executes?|triggers?)\s+(later|automatically|periodically|on\s+schedule)/i,
+      /(workflow|pipeline|automation)\s+(persists?|is\s+saved|stored)\s+(across|between)\s+(sessions?|users?|requests?|runs?)/i,
+      /auto[-\s]?(trigger|execute|run)\s+(saved|stored|user[-\s]defined)\s+(workflow|pipeline|template|automation)/i,
+      /(malicious|attacker[-\s]defined|user[-\s]defined)\s+workflow\s+(once|one\s+time)\s+.{0,60}(runs?\s+forever|persists?|permanent)/i
     ]
   },
   {
@@ -209,7 +222,11 @@ const naturalLanguageRules: PatternRule[] = [
       /(user|external|document)\s+(content|input|data)\s+(may\s+be\s+|is\s+)?indexed\s+(for\s+)?(future|search|retrieval)/i,
       /(retrieved|indexed|stored)\s+(content|documents?|records?)\s+(are\s+|may\s+be\s+)?(trusted|treated\s+as\s+authoritative|used\s+as\s+instructions?)/i,
       /(search|retrieval|RAG)\s+(results?|context)\s+(may\s+|can\s+)?(influence|direct|instruct)\s+(agent|behavior|actions?)/i,
-      /(update|modify|add\s+to)\s+(the\s+)?(index|knowledge\s+base|search\s+corpus)\s+(based\s+on|from|using)\s+(user|external|untrusted)/i
+      /(update|modify|add\s+to)\s+(the\s+)?(index|knowledge\s+base|search\s+corpus)\s+(based\s+on|from|using)\s+(user|external|untrusted)/i,
+      /(update|add\s+to|modify|poison)\s+(the\s+)?(index|knowledge\s+base|search\s+corpus)\s+.{0,80}(future\s+queries?|future\s+users?|next\s+time\s+someone\s+searches?)/i,
+      /indexed\s+content\s+(will\s+|may\s+|can\s+)?(appear|surface|be\s+returned)\s+(in\s+)?future\s+(queries?|searches?|results?)/i,
+      /(any\s+employee|users?|external)\s+(may\s+|can\s+)?(add|contribute|write)\s+(to\s+)?(the\s+)?(index|knowledge\s+base|corpus)\s+(without|no)\s+(review|approval|validation)/i,
+      /no\s+(review|approval|vetting)\s+(is\s+)?(required|needed)\s+before\s+(content\s+is\s+|indexing|adding\s+to)/i
     ]
   },
   {
@@ -259,7 +276,12 @@ const naturalLanguageRules: PatternRule[] = [
       /(suppress|silence|disable|mute|skip)\s+(alerts?|notifications?|incidents?|warnings?)\s+.{0,60}(low\s+risk|noise|routine|performance)/i,
       /(alert|notification)\s+(recipients?|destinations?|channels?)\s+(may\s+be\s+|can\s+be\s+)?updated\s+(based\s+on|from|per)\s+(user|requester)\s+(input|request)/i,
       /(failed\s+actions?|errors?|anomalies?)\s+(may\s+be\s+retried\s+|are\s+retried\s+)?silently/i,
-      /(delete|remove|clear)\s+(alerts?|logs?|notifications?|incidents?)\s+(to\s+)?(reduce\s+noise|clean\s+up|after|when)/i
+      /(delete|remove|clear)\s+(alerts?|logs?|notifications?|incidents?)\s+(to\s+)?(reduce\s+noise|clean\s+up|after|when)/i,
+      /(reroute|redirect|forward|send)\s+(security\s+)?(alerts?|incidents?|notifications?|warnings?)\s+(to\s+)?(user[-\s]provided|external|attacker|custom)\s+(channel|endpoint|email|webhook|slack)/i,
+      /(suppress|silence|mute|disable|skip)\s+(alerts?|notifications?|incident\s+reports?|security\s+warnings?)/i,
+      /(stay\s+hidden|avoid\s+detection|reduce\s+noise|minimize\s+alerts?)\s+(by|while|during)\s+(deleting?|suppressing?|routing?)/i,
+      /(alert|notification)\s+(channel|destination|recipient)\s+(may\s+be\s+|can\s+be\s+)?changed\s+(by|at)\s+(user|runtime|request)\s+(input|time|without\s+approval)/i,
+      /failed\s+actions?\s+(are\s+|may\s+be\s+)?retried\s+silently\s+(without|no)\s+(alert|notification|log)/i
     ]
   },
   {
@@ -319,6 +341,91 @@ const naturalLanguageRules: PatternRule[] = [
     ]
   },
   {
+    id: 'AGT-122',
+    patterns: [
+      /generated\s+code\s+(may\s+be\s+|can\s+be\s+|is\s+)?executed?\s+(immediately|directly|without\s+(review|approval|inspection|sandbox))/i,
+      /(write\s+and\s+run|generate\s+and\s+(execute|run)|create\s+and\s+execute)\s+(the\s+)?(script|code|program)\s+directly/i,
+      /(user\s+)?(describes?|explains?|requests?)\s+.{0,40}(agent\s+may|may\s+then|will\s+then)\s+(write\s+and\s+)?run/i,
+      /no\s+(code\s+review|review|inspection|human\s+check)\s+(is\s+)?(required|needed)\s+(before\s+)?(executing?|running|running\s+code)/i,
+      /execute\s+(immediately|directly)\s+(without|no)\s+(review|approval|sandbox|inspection)/i
+    ]
+  },
+  {
+    id: 'AGT-123',
+    patterns: [
+      /(webhook|endpoint|callback)\s+(url|urls?|destinations?)\s+(are\s+|is\s+)?provided\s+by\s+(users?|requesters?)\s+(at\s+runtime|dynamically|on\s+demand)/i,
+      /trust\s+(user[-\s]provided|runtime[-\s]provided|requester[-\s]provided)\s+(webhook|endpoint|url|destination)\s+(as\s+)?(business|valid|legitimate)/i,
+      /no\s+(webhook\s+)?(domain\s+)?(allowlist|allow\s+list|whitelist)\s+(is\s+)?(configured|required|enforced)/i,
+      /(payload|data|records?|content)\s+(may\s+|can\s+)?(include|contain)\s+(full|complete|raw|all)\s+(customer|user|billing|sensitive)\s+(records?|data)\s+(when|if)\s+(integration|required|needed)/i,
+      /(send|post|push)\s+(data|payload|records?)\s+to\s+(user[-\s]provided|runtime|dynamic|attacker)\s+(url|endpoint|webhook)/i,
+      /no\s+(hmac|signature|signing|payload\s+validation|verification)\s+(is\s+)?(required|configured|enforced)/i
+    ]
+  },
+  {
+    id: 'AGT-124',
+    patterns: [
+      /(plugins?|extensions?)\s+(may\s+be\s+|can\s+be\s+)?installed\s+(from\s+)?(any\s+)?(url|registry|source|package|location)/i,
+      /no\s+(code\s+review|signature\s+verification|security\s+scan|vetting|approval)\s+(is\s+)?(required|needed)\s+(before\s+)?(install|loading?|execution)/i,
+      /plugin\s+code\s+runs?\s+(in\s+the\s+same\s+context|with\s+the\s+same\s+permissions?|as\s+the\s+agent)/i,
+      /(if\s+a\s+plugin\s+requests?|plugin\s+may\s+request)\s+(additional|more|elevated)\s+(permissions?|access)\s+.{0,40}(grant|allow|approve)/i,
+      /(load|install|execute)\s+(user[-\s]provided|external|third[-\s]party|untrusted)\s+(plugins?|extensions?|modules?|packages?)/i,
+      /plugins?\s+(may\s+|can\s+)?(access|use)\s+(all\s+tools?|every\s+tool|same\s+tools?)\s+(the\s+agent|as\s+the\s+agent)/i
+    ]
+  },
+  {
+    id: 'AGT-125',
+    patterns: [
+      /(iam\s+policy|iam\s+role|iam\s+user|access\s+policy)\s+(changes?|updates?|modifications?)\s+(may\s+be\s+|can\s+be\s+)?applied\s+(directly|immediately|without\s+(approval|review|change\s+window))/i,
+      /(add|create|provision)\s+(new\s+)?(iam\s+users?|iam\s+roles?|admin\s+accounts?|service\s+accounts?)\s+(when\s+needed|on\s+demand|without\s+approval)/i,
+      /(agent\s+may|may\s+)\s*(update|modify|change|add|create|grant)\s+(iam|access|permission|role)\s+(policies?|users?|roles?|grants?)/i,
+      /(terraform|infrastructure)\s+(plans?\s+may\s+be\s+|may\s+be\s+)?applied\s+(without|no)\s+(manual\s+)?(approval|review)/i,
+      /(no\s+change\s+(review|window)|no\s+manual\s+approval)\s+(is\s+)?(required|needed)\s+(for\s+)?(small|minor|urgent|infra)/i,
+      /if\s+(the\s+)?(engineer|user|requester)\s+says\s+(it\s+is\s+|its\s+)?(urgent|needed|required)\s+.{0,40}(iam|terraform|apply|deploy|policy)/i
+    ]
+  },
+  {
+    id: 'AGT-126',
+    patterns: [
+      /(agent\s+may|may\s+)\s*(describe|reveal|explain|share|disclose)\s+(its\s+|their\s+)?(own\s+)?(instructions?|guidelines?|configuration|system\s+prompt|rules?|policy)/i,
+      /no\s+restrictions?\s+on\s+(what\s+the\s+agent\s+may\s+reveal|disclosing|revealing)\s+(about\s+)?(its\s+)?(configuration|instructions?|rules?|guidelines?|system\s+prompt)/i,
+      /(provide|offer|give)\s+(helpful\s+)?(transparency|information)\s+(about\s+)?(how\s+the\s+agent\s+works|its\s+instructions?|its\s+guidelines?|its\s+rules?)/i,
+      /if\s+(a\s+)?(customer|user)\s+asks\s+how\s+the\s+agent\s+works?\s*.{0,60}(describe|explain|share|reveal)/i,
+      /(conversation\s+logs?\s+including\s+full\s+prompts?|full\s+prompts?\s+and\s+responses?)\s+(are\s+|may\s+be\s+)?(sent|logged|shared|exported)/i
+    ]
+  },
+  {
+    id: 'AGT-127',
+    patterns: [
+      /(cloud\s+metadata|instance\s+metadata|metadata\s+endpoint|metadata\s+service)\s+(may\s+be\s+|can\s+be\s+|are\s+)?(accessed?|fetched?|queried?|requested?)/i,
+      /(internal\s+hostnames?|internal\s+ips?|internal\s+(services?|endpoints?)|local\s+services?)\s+(are\s+|may\s+be\s+)?valid\s+(diagnostic\s+)?(targets?|destinations?)/i,
+      /(localhost|127\.0\.0\.1|169\.254\.169\.254|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)\s+(may\s+be\s+|can\s+be\s+|are\s+)?(fetched?|accessed?|pinged?|reached?)/i,
+      /(requests?\s+to\s+|fetching?\s+|accessing?\s+)\s*(localhost|internal|private|metadata)\s+(are\s+|is\s+)?allowed/i,
+      /no\s+(ip\s+range\s+(blocklist|denylist)|ssrf\s+protection|private\s+ip\s+filter)\s+(is\s+)?(configured|required|enforced)/i,
+      /(verify|confirm|test|check)\s+(instance|cloud|server)\s+configuration\s+(by\s+)?(fetching?|accessing?)\s+(metadata|internal)/i
+    ]
+  },
+  {
+    id: 'AGT-128',
+    patterns: [
+      /(access\s+grants?|permissions?|roles?)\s+(do\s+not\s+|don'?t\s+)?expire\s+(automatically|by\s+default|without\s+intervention)/i,
+      /no\s+(maximum\s+)?(permission\s+level|privilege\s+ceiling|access\s+limit)\s+(is\s+)?(enforced|configured|required)/i,
+      /(agent\s+may|may\s+)\s*(grant|provision|assign)\s+(access\s+to|permissions?\s+for)\s+(tools?|systems?|resources?)\s+(it\s+has\s+not\s+previously|without\s+prior\s+approval)/i,
+      /bulk\s+(access\s+grants?|provisioning|permission\s+assignments?)\s+(are\s+allowed|allowed\s+during|permitted\s+without)/i,
+      /(if\s+the\s+)?(manager|user|engineer|requester)\s+says\s+.{0,50}(needs?\s+broader|needs?\s+more|grant\s+access|elevated|additional)\s+(access|permissions?|privileges?)/i,
+      /(access|permissions?|roles?)\s+assigned\s+(based\s+on|from|per)\s+(stated|manager'?s?|user'?s?\s+stated)\s+(request|need|requirement)/i
+    ]
+  },
+  {
+    id: 'AGT-129',
+    patterns: [
+      /(support|agents?|employees?)\s+(may\s+|can\s+)?impersonat\w+\s+(users?|customers?|accounts?)(\s+(to\s+)?(reproduce|debug|investigate|troubleshoot))?/i,
+      /if\s+(a\s+)?(support\s+(employee|agent)|engineer)\s+says\s+(the\s+)?(customer\s+)?(consented|approved|agreed|gave\s+permission)\s+.{0,40}(proceed|continue|impersonat)/i,
+      /(do\s+not|no\s+|without)\s+(separate|additional|extra|explicit)\s+approval\s+(required\s+)?(for\s+)?impersonation/i,
+      /audit\s+logs?\s+(may\s+be\s+|are\s+|can\s+be\s+)?(shortened|truncated|minimized|reduced)\s+(to\s+)?(reduce\s+noise|save\s+space)/i,
+      /(session|impersonation)\s+details?\s+(may\s+be\s+|can\s+be\s+)?emailed\s+(to\s+)?(engineering|developers?|external)/i
+    ]
+  },
+  {
     id: 'AGT-116',
     patterns: [
       /(ci|build|pipeline)\s+(logs?|outputs?|results?)\s+(may\s+be\s+|can\s+be\s+|are\s+)?(pasted|shared|posted|sent)\s+(directly\s+)?(to|in|via)\s+(slack|teams?|email|chat|webhook)/i,
@@ -370,6 +477,38 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
         break;
       }
     }
+  }
+
+  const hasTrustOnClaimPattern = naturalLanguageRules
+    .find((rule) => rule.id === 'AGT-096')
+    ?.patterns.some((pattern) => pattern.test(parsed.content));
+  const hasPrivilegeTools = /(grant_access|assign_role|create_user|update_permissions|impersonate_user_session|reset_password)/i.test(parsed.content);
+  if (hasTrustOnClaimPattern && hasPrivilegeTools) {
+    const existing = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-096');
+    if (existing) {
+      existing.severity = 'critical';
+    } else {
+      findings.push({ ...finding('AGT-096'), severity: 'critical' });
+    }
+  }
+
+  const hasAlertDestructiveTool = /(delete_logs|clear_alerts)/i.test(parsed.content);
+  const hasExternalSendTool = /(send_webhook|send_email|post_to|send_slack|webhook|external)/i.test(parsed.content);
+  if (hasAlertDestructiveTool && hasExternalSendTool && !findings.some((ruleFinding) => ruleFinding.ruleId === 'AGT-109')) {
+    findings.push(finding('AGT-109'));
+  }
+
+  const hasWorkflowTool = /(save_template|schedule_task|create_pipeline)/i.test(parsed.content);
+  const hasAutomationBypass = /without\s+review|automatically/i.test(parsed.content);
+  if (hasWorkflowTool && hasAutomationBypass && !findings.some((ruleFinding) => ruleFinding.ruleId === 'AGT-103')) {
+    findings.push({ ...finding('AGT-103'), severity: 'high' });
+  }
+
+  const hasNoReviewBeforeIndexing = /no\s+(review|approval|vetting)\s+(is\s+)?(required|needed)\s+before\s+(content\s+is\s+|indexing|adding\s+to)|(any\s+employee|users?|external)\s+(may\s+|can\s+)?(add|contribute|write)\s+(to\s+)?(the\s+)?(index|knowledge\s+base|corpus)\s+(without|no)\s+(review|approval|validation)/i.test(parsed.content);
+  const hasAuthoritativeRetrieval = /(retrieved|indexed|stored)\s+(content|documents?|records?)\s+(are\s+|may\s+be\s+)?(trusted|treated\s+as\s+authoritative|used\s+as\s+instructions?)/i.test(parsed.content);
+  if (hasNoReviewBeforeIndexing && hasAuthoritativeRetrieval) {
+    const existing = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-104');
+    if (existing) existing.severity = 'critical';
   }
 
   return findings;
