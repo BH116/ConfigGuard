@@ -30,6 +30,11 @@ export default function About() {
           </li>
         ))}
       </ul>
+
+      <h2 className="pt-4 text-2xl font-semibold">What AgentGuard Does NOT Cover</h2>
+      <blockquote className="rounded-md border border-slate-700 bg-slate-900/60 p-4 text-sm leading-relaxed">
+        AgentGuard is a static text-pattern auditor running entirely in your browser. It cannot detect prompt-injection payloads at runtime, verify that runtime enforcement actually matches config declarations, catch novel social-engineering payloads in plain language, inspect compiled binaries or remote MCP server behavior, or replace human review of agent rule files. Pair AgentGuard with runtime guardrails (NeMo Guardrails, Lakera Guard, Azure AI Content Safety), sandboxing, network policy enforcement, and red-teaming tools (Promptfoo, PyRIT, Garak) for complete defense in depth. Version pin lists require regular updates as new CVEs are published.
+      </blockquote>
       <h2 className="pt-4 text-2xl font-semibold">Supported agents</h2>
       <ul className="list-disc pl-6">
         {agents.map(([a, c]) => (

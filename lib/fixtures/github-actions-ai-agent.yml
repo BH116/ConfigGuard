@@ -1,0 +1,9 @@
+# Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+on: pull_request_target
+permissions:
+  contents: write
+jobs:
+  ai:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: anthropics/claude-code-action@v1

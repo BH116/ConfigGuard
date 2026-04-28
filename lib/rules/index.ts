@@ -6,6 +6,19 @@ import { runMcpRules } from './mcp';
 import { runNetworkRules } from './network';
 import { runWorkflowRules } from './workflow';
 import { runTrifectaRule } from './trifecta';
+import { runAuthorizationRules } from './authorization';
+import { runRatelimitRules } from './ratelimit';
+import { runAuditRules } from './audit';
+import { runDataPrivacyRules } from './dataprivacy';
+import { runPromptInjectionRules } from './promptinjection';
+import { runToolPoisoningRules } from './toolpoisoning';
+import { runMemoryRules } from './memory';
+import { runMultiAgentRules } from './multiagent';
+import { runSandboxRules } from './sandbox';
+import { runSupplyChainRules } from './supplychain';
+import { runOutputHandlingRules } from './outputhandling';
+import { runGovernanceRules } from './governance';
+import { runCveSpecificRules } from './cvespecific';
 import { RULE_CATALOG } from './catalog';
 
 export const runRules = (parsed: ParsedConfig): Finding[] => {
@@ -16,7 +29,20 @@ export const runRules = (parsed: ParsedConfig): Finding[] => {
     ...runMcpRules(parsed),
     ...runPermissionRules(parsed),
     ...runNetworkRules(parsed),
-    ...runWorkflowRules(parsed)
+    ...runWorkflowRules(parsed),
+    ...runAuthorizationRules(parsed),
+    ...runRatelimitRules(parsed),
+    ...runAuditRules(parsed),
+    ...runDataPrivacyRules(parsed),
+    ...runPromptInjectionRules(parsed),
+    ...runToolPoisoningRules(parsed),
+    ...runMemoryRules(parsed),
+    ...runMultiAgentRules(parsed),
+    ...runSandboxRules(parsed),
+    ...runSupplyChainRules(parsed),
+    ...runOutputHandlingRules(parsed),
+    ...runGovernanceRules(parsed),
+    ...runCveSpecificRules(parsed)
   ];
   return all.filter((f, idx) => all.findIndex((x) => x.ruleId === f.ruleId) === idx);
 };

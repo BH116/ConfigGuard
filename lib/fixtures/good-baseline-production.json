@@ -1,0 +1,36 @@
+// Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+{
+  "risk_tier": "high",
+  "permissions": ["read_ticket", "write_reply"],
+  "deny": [".env", ".aws", ".ssh", ".kube", ".docker", ".gcloud", ".terraform", ".npmrc", ".pypirc", "*.pem", "*.p12", "*.pfx", "*.jks", "id_ed25519", "id_ecdsa"],
+  "tools": [
+    {"name": "send_email", "requires_approval": true, "timeout": 60},
+    {"name": "update_account", "requires_approval": true, "timeout": 60, "field_allowlist": ["account_id", "status"]}
+  ],
+  "rate_limit": 100,
+  "token_budget": 12000,
+  "audit_log": true,
+  "log_retention_days": 120,
+  "pii_redaction": true,
+  "tenant_id": "ctx.tenant",
+  "propagate_user_id": true,
+  "input_rails": true,
+  "output_rails": true,
+  "sanitize_output": true,
+  "disable_image_autoload": true,
+  "link_domain_allowlist": ["internal.example"],
+  "openai_moderation": true,
+  "kill_switch": true,
+  "model": "gpt-4o-2026-01-15",
+  "temperature": 0,
+  "data_retention_days": 90,
+  "data_residency": "us",
+  "human_oversight": true,
+  "post_market_monitoring": true,
+  "transparency_notice": true,
+  "dpia_id": "DPIA-TEST-001",
+  "agent_allowlist": ["agent-support"],
+  "correlation_id": "req-123",
+  "sensitive_tables": false,
+  "source_allowlist": ["https://internal.example"]
+}

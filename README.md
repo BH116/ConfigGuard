@@ -12,16 +12,13 @@ Codex, Cursor, GitHub Copilot, Aider, Continue, Windsurf, Gemini CLI, Claude Cod
 
 ## What it detects
 
-AgentGuard uses a deterministic client-side rule engine with 22 checks mapped to OWASP and CWE style references. Codex and AGENTS.md are first-class inputs, with the same defensive checks applied to all supported agents.
+AgentGuard uses a deterministic client-side rule engine with 84 detection rules mapped to OWASP, NIST, and CVE references. Codex and AGENTS.md are first-class inputs, with the same defensive checks applied to all supported agents.
 
 | Rule ID | Title | Severity |
 |---|---|---|
-| AGT-001 | Lethal Trifecta | Critical |
-| AGT-002 | Hardcoded Secrets | Critical |
-| AGT-003 | Untrusted MCP Server | Critical |
-| AGT-004 | Auto-Run Without Sandbox | Critical |
-| AGT-005 | Invisible Unicode in Instructions | Critical |
-| AGT-006..AGT-022 | Filesystem, network, workflow, MCP, and privacy misconfiguration checks | High, Medium, Low, Info |
+| AGT-001..AGT-084 | Full catalog across trifecta, secrets, MCP, permissions, network, workflow, authorization, rate limiting, audit, data privacy, prompt injection, tool poisoning, memory, multi-agent, sandbox, supply chain, output handling, governance, and CVE-specific checks | Critical, High, Medium, Low, Info |
+
+Full canonical metadata is defined in `lib/rules/catalog.ts`.
 
 ## How it works
 

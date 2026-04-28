@@ -6,7 +6,7 @@ import { TrifectaDiagram } from './trifecta-diagram';
 
 export function FindingsList({ findings }: { findings: Finding[] }) {
   const sorted = [...findings].sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
-  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  const counts = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   sorted.forEach((f) => {
     if (f.severity in counts) counts[f.severity as keyof typeof counts] += 1;
   });
@@ -15,7 +15,8 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
     { key: 'critical', label: 'Critical', count: counts.critical, color: 'bg-red-600' },
     { key: 'high', label: 'High', count: counts.high, color: 'bg-orange-500' },
     { key: 'medium', label: 'Medium', count: counts.medium, color: 'bg-amber-400' },
-    { key: 'low', label: 'Low', count: counts.low, color: 'bg-blue-500' }
+    { key: 'low', label: 'Low', count: counts.low, color: 'bg-blue-500' },
+    { key: 'info', label: 'Info', count: counts.info, color: 'bg-slate-500' }
   ].filter((severity) => severity.count > 0);
 
   const trifecta = sorted.find((f) => f.ruleId === 'AGT-001');
