@@ -485,12 +485,27 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const findings: Finding[] = [];
   const aggregationTerms = ['customer', 'vendor', 'employee', 'billing', 'payment', 'financial', 'medical', 'tax', 'ach', 'bank', 'salary', 'hr', 'contract', 'invoice'];
   const normalizedContent = parsed.content.toLowerCase();
+  const safeControlPattern = /(never|do\s+not|must\s+not|only|require|requires|verified|verification|approval|review|immutable|quarantin(?:e|ed)|allowlist|fixed\s+recipients?|revalidate|re-check|high-level\s+summary)/i;
+  const snippet = (pattern: RegExp) => parsed.content.match(pattern)?.[0];
+
+  const addFinding = (id: string, evidencePattern?: RegExp, severity?: Finding['severity']) => {
+    const existing = findings.find((f) => f.ruleId === id);
+    const excerpt = evidencePattern ? snippet(evidencePattern) : undefined;
+    if (existing) {
+      if (!existing.excerpt && excerpt) existing.excerpt = excerpt;
+      if (severity) existing.severity = severity;
+      return;
+    }
+    const newFinding = finding(id, excerpt);
+    if (severity) newFinding.severity = severity;
+    findings.push(newFinding);
+  };
 
   for (const rule of naturalLanguageRules) {
     for (const pattern of rule.patterns) {
       const match = parsed.content.match(pattern);
       if (match) {
-        findings.push(finding(rule.id, match[0]));
+        addFinding(rule.id, pattern);
         break;
       }
     }
@@ -517,7 +532,7 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
       const window = normalizedContent.slice(index, index + maxWindow);
       const presentTerms = aggregationTerms.filter((term) => new RegExp(`\\b${term}\\b`, 'i').test(window));
       if (new Set(presentTerms).size >= 4) {
-        findings.push(finding('AGT-098', window.trim()));
+        addFinding('AGT-098', new RegExp(window.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
         break;
       }
     }
@@ -532,20 +547,20 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     if (existing) {
       existing.severity = 'critical';
     } else {
-      findings.push({ ...finding('AGT-133'), severity: 'critical' });
+      addFinding('AGT-133', /(says|claims?|approved|consented|assume\s+authorized)/i, 'critical');
     }
   }
 
   const hasAlertDestructiveTool = /(delete_logs|clear_alerts)/i.test(parsed.content);
   const hasExternalSendTool = /(send_webhook|send_email|post_to|send_slack|webhook|external)/i.test(parsed.content);
   if (hasAlertDestructiveTool && hasExternalSendTool && !findings.some((ruleFinding) => ruleFinding.ruleId === 'AGT-109')) {
-    findings.push(finding('AGT-109'));
+    addFinding('AGT-109', /(delete_logs|clear_alerts|send_webhook|send_email|external)/i);
   }
 
   const hasWorkflowTool = /(save_template|schedule_task|create_pipeline)/i.test(parsed.content);
   const hasAutomationBypass = /without\s+review|automatically/i.test(parsed.content);
   if (hasWorkflowTool && hasAutomationBypass && !findings.some((ruleFinding) => ruleFinding.ruleId === 'AGT-103')) {
-    findings.push({ ...finding('AGT-103'), severity: 'high' });
+    addFinding('AGT-103', /(save_template|schedule_task|create_pipeline|without\s+review|automatically)/i, 'high');
   }
 
   const hasNoReviewBeforeIndexing = /no\s+(review|approval|vetting)\s+(is\s+)?(required|needed)\s+before\s+(content\s+is\s+|indexing|adding\s+to)|(any\s+employee|users?|external)\s+(may\s+|can\s+)?(add|contribute|write)\s+(to\s+)?(the\s+)?(index|knowledge\s+base|corpus)\s+(without|no)\s+(review|approval|validation)/i.test(parsed.content);
@@ -553,6 +568,72 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   if (hasNoReviewBeforeIndexing && hasAuthoritativeRetrieval) {
     const existing = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-104');
     if (existing) existing.severity = 'critical';
+  }
+
+  const hasPromptDisclosureIntent = /(show|reveal|display|provide|include|expose)\s+.{0,40}(system\s+prompt|developer\s+(prompt|guidance|rules?)|hidden\s+(instructions?|policies|constraints)|operating\s+instructions?|tool\s+selection\s+rules?|internal\s+routing\s+logic|full\s+prompt)/i.test(parsed.content)
+    || /(auditor|internal\s+reviewers?|developers?)\s+.{0,60}(request|inspect|see)\s+.{0,60}(full\s+operating\s+instructions?|operational\s+prompts?|hidden\s+rules?|tool\s+rules?)/i.test(parsed.content)
+    || /(transparency|reproducibility|auditing)\s+.{0,60}(includes|requires?)\s+.{0,60}(prompt\s+disclosure|showing\s+rules?|hidden\s+routing|developer\s+rules?)/i.test(parsed.content);
+  const hasPromptDisclosureSafety = /(never\s+reveal|never\s+disclose|do\s+not\s+reveal|do\s+not\s+disclose|high-level\s+explanation|high-level\s+summary\s+only).{0,120}(system\s+prompt|developer\s+instructions?|internal\s+routing\s+logic|hidden\s+polic(?:y|ies))/i.test(parsed.content);
+  if (hasPromptDisclosureIntent && !hasPromptDisclosureSafety) {
+    addFinding('AGT-125', /(full\s+operating\s+instructions?|hidden\s+routing\s+notes|system-level\s+constraints|tool\s+selection\s+rules?|developer\s+guidance|operational\s+prompts)/i);
+  }
+
+  const hasKbUpdate = /(update_(kb|search_index|index)|ingest_(document|note)|add_to_knowledge_base|index_document|search_(kb|index)|knowledge\s+base\s+fresh|indexed\s+notes?)/i.test(parsed.content)
+    || /(add|index|ingest|update)\s+.{0,60}(knowledge\s+base|search\s+index|internal\s+kb|internal\s+index)/i.test(parsed.content);
+  const hasUntrustedKbSources = /(external\s+articles?|uploaded\s+documents?|customer\s+tickets?|employee\s+notes?|user-provided\s+notes?|external\/user\s+documents?)/i.test(parsed.content);
+  const kbTreatedTrusted = /(trusted\s+context|considered\s+reliable|authoritative|future\s+employees?\s+may\s+receive|future\s+users?.{0,40}(answers?|recommendations?))/i.test(parsed.content);
+  const kbNoValidation = /(no\s+source\s+validation|do\s+not\s+require\s+source\s+verification|routine\s+updates?\s+do\s+not\s+require\s+source\s+verification|without\s+(review|approval|validation))/i.test(parsed.content);
+  const kbQuarantineSafe = /(quarantined\s+untrusted\s+corpus|provenance|source\s+review|required\s+before\s+indexing|not\s+used\s+as\s+authoritative|no\s+automatic\s+use\s+for\s+future\s+answers)/i.test(parsed.content);
+  if (hasKbUpdate && hasUntrustedKbSources && (kbTreatedTrusted || kbNoValidation) && !kbQuarantineSafe) {
+    addFinding('AGT-104', /(trusted\s+context\s+for\s+later\s+answers|considered\s+reliable\s+for\s+future\s+answers|no\s+source\s+validation\s+required|future\s+employees?\s+may\s+receive\s+recommendations)/i, (kbTreatedTrusted && kbNoValidation) ? 'critical' : undefined);
+  }
+
+  const hasMemoryWrite = /(store_user_preference|save_preference|load_preference|store_memory|save_memory|update_memory|save_workflow|save_shortcut|remember\s+shortcuts?|preferred\s+workflows?)/i.test(parsed.content)
+    || /(save|remember|store)\s+.{0,60}(preferences?|corrections?|workflows?|team-specific\s+rules?)/i.test(parsed.content);
+  const memoryTrusted = /(stored\s+preferences?\s+are\s+treated\s+as\s+reliable|trusted\s+context|unless\s+contradicted)/i.test(parsed.content);
+  const memoryCrossTenant = /(across\s+teams|future\s+users?|other\s+teams|broadly\s+useful\s+.*applied)/i.test(parsed.content);
+  const memoryNoReview = /(no\s+review\s+is\s+needed|saved\s+automatically|without\s+review\s+before\s+saving\s+or\s+reusing)/i.test(parsed.content);
+  const memorySafe = /(local\s+to\s+the\s+same\s+user|cannot\s+affect\s+other\s+users?|explicit\s+confirmation\s+before\s+saving|expiration|never\s+treated\s+as\s+instructions)/i.test(parsed.content);
+  if (hasMemoryWrite && (memoryTrusted || memoryCrossTenant || memoryNoReview) && !memorySafe) {
+    addFinding('AGT-103', /(remember\s+shortcuts|saved\s+workflow\s+seems\s+broadly\s+useful|stored\s+preferences\s+are\s+treated\s+as\s+reliable|no\s+review\s+is\s+needed)/i, (memoryCrossTenant || (memoryTrusted && memoryNoReview)) ? 'critical' : 'high');
+  }
+
+  const hasAlertRouteChange = /(update_notification_route|update_alert_route|forward_alert|forward_notification|route_alert|change_alert_recipient|update_escalation_contact|adjust\s+incident\s+notification\s+routing|alerts?\s+reach\s+the\s+right\s+people)/i.test(parsed.content);
+  const hasAlertHijackSignals = /(user\s+provides?\s+a\s+better\s+responder|escalation\s+contact|external\s+incident\s+consultants?|full\s+alert\s+details|routing\s+updates?\s+do\s+not\s+require\s+approval|temporary\s+routes?\s+do\s+not\s+need\s+expiration|routes?\s+remain\s+active|during\s+active\s+incidents)/i.test(parsed.content);
+  const hasAlertSafe = /(require\s+approval|verified\s+on-call\s+ownership|expiration\s+required|immutable\s+audit\s+log|external\s+full\s+alert\s+detail\s+sharing\s+is\s+disallowed)/i.test(parsed.content);
+  if (hasAlertRouteChange && hasAlertHijackSignals && !hasAlertSafe) {
+    addFinding('AGT-128', /(better\s+responder|external\s+incident\s+consultants?\s+may\s+receive\s+full\s+alert\s+details|temporary\s+routes?\s+do\s+not\s+need\s+an?\s+expiration\s+date|do\s+not\s+require\s+approval\s+during\s+active\s+incidents)/i, /full\s+alert\s+details|external\s+incident\s+consultants?|routing\s+updates?\s+do\s+not\s+require\s+approval/i.test(parsed.content) ? 'critical' : undefined);
+  }
+
+  const hasImpersonationFlow = /(start_user_impersonation|impersonate_user_session|view_as_user|from\s+the\s+customer[’']?s\s+point\s+of\s+view|impersonated\s+session|login\s+resets?\s+may\s+be\s+performed|reset_(password|login_credentials))/i.test(parsed.content);
+  const hasClaimedConsent = /(staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|consent\s+claimed\s+by\s+staff|proceed\s+based\s+on\s+claimed\s+consent)/i.test(parsed.content);
+  const hasAtoSignals = /(session\s+information|account\s+details\s+may\s+be\s+posted|audit\s+entries\s+can\s+be\s+summarized|no\s+separate\s+approval)/i.test(parsed.content);
+  const hasImpersonationSafe = /(read-only\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+credential\s+reset|no\s+screenshots)/i.test(parsed.content);
+  if (hasImpersonationFlow && (hasClaimedConsent || hasAtoSignals) && !hasImpersonationSafe) {
+    addFinding('AGT-130', /(customer[’']?s\s+point\s+of\s+view|staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|login\s+resets?\s+may\s+be\s+performed|audit\s+entries\s+can\s+be\s+summarized)/i, /(reset_|login\s+resets?|no\s+separate\s+approval|claimed\s+consent)/i.test(parsed.content) ? 'critical' : 'high');
+  }
+
+  const hasInfraEscalation = /(terraform_apply|terraform\s+apply|update_iam_policy|attach_policy|create_service_account|grant_group_membership|add_user_to_group|iam:CreateUser|iam:AttachUserPolicy|AdministratorAccess|grant\s+administrator\s+access|attach\s+broad\s+permissions|temporary\s+machine\s+identity)/i.test(parsed.content);
+  const hasInfraBypass = /(apply\s+infrastructure\s+changes?\s+immediately|no\s+second\s+approval|during\s+active\s+incidents|temporary\s+access\s+can\s+remain|urgent\s+incident\s+bypass|restore\s+service)/i.test(parsed.content);
+  const hasInfraSafe = /(plan-only|terraform\s+plan\s+only|require\s+approval|security\s+review|required|cannot\s+grant\s+broad\/admin\s+permissions|expiration\s+required)/i.test(parsed.content);
+  if (hasInfraEscalation && hasInfraBypass && !hasInfraSafe) {
+    addFinding('AGT-124', /(temporary\s+machine\s+identity|attach\s+broad\s+permissions|apply\s+infrastructure\s+changes?\s+immediately|no\s+second\s+approval\s+is\s+required)/i, 'critical');
+    addFinding('AGT-126', /(temporary\s+access\s+can\s+remain|no\s+second\s+approval|broad\s+permissions)/i, 'critical');
+  }
+
+  const hasScheduledExports = /(schedule_task|schedule_report|update_scheduled_task|modify_report_schedule|recurring_export|scheduled\s+reports?|recurring\s+exports?)/i.test(parsed.content);
+  const hasMutableRecipients = /(delivery\s+emails?\s+can\s+be\s+changed\s+later|webhooks\s+can\s+be\s+changed\s+later|destination\s+folders\s+can\s+be\s+changed\s+later|anyone\s+who\s+knows\s+the\s+schedule\s+key|does\s+not\s+re-check\s+approval\s+on\s+each\s+run|inherits?\s+original\s+requester'?s\s+permissions)/i.test(parsed.content);
+  const hasScheduledSensitive = /(external\s+advisors?\s+may\s+receive|customer\s+names?|billing\s+status|invoice\s+totals?|support\s+notes?)/i.test(parsed.content);
+  const hasScheduleSafe = /(fixed\s+verified\s+recipients|changes\s+require\s+new\s+approval|each\s+run\s+revalidates\s+permissions|aggregate-only|no\s+external\s+recipients)/i.test(parsed.content);
+  if (hasScheduledExports && hasMutableRecipients && !hasScheduleSafe) {
+    addFinding('AGT-099', /(keeps\s+the\s+permissions\s+of\s+the\s+person\s+who\s+created\s+it|delivery\s+emails?,\s+webhooks?,\s+and\s+destination\s+folders\s+can\s+be\s+changed\s+later|anyone\s+who\s+knows\s+the\s+schedule\s+key|does\s+not\s+re-check\s+approval\s+on\s+each\s+run)/i, hasScheduledSensitive ? 'critical' : 'high');
+  }
+
+  const trustOnClaimSignals = /(if\s+(a\s+)?(user|requester|staff\s+member)\s+says\s+.{0,80}(admin|approval|approved|consented|urgent|partner|vendor|owns?\s+the\s+app)|assume\s+(authorized|internal\s+access)|appears?\s+(related|knowledgeable)|claiming\s+to\s+act\s+on\s+behalf\s+of\s+leadership|user\s+provides?\s+a\s+better\s+responder)/i.test(parsed.content);
+  const privilegedDomains = /(impersonat|reset_(password|login)|grant|terraform|iam|alert\s+routing|schedule|export|payment|billing|financial|access)/i.test(parsed.content);
+  const claimSafe = /(verify\s+role|verified\s+consent|authoritative\s+system|do\s+not\s+rely\s+on\s+user\s+claims)/i.test(parsed.content);
+  if (trustOnClaimSignals && !claimSafe) {
+    addFinding('AGT-133', /(if\s+.*says\s+.*(approved|consented|urgent|admin)|assume\s+authorized|better\s+responder|appears?\s+knowledgeable)/i, privilegedDomains ? 'critical' : 'high');
   }
 
   const hasPluginPermissionInheritance = /(plugins?\s+.*(same\s+execution\s+context|inherit\s+the\s+agent|same\s+permissions?))/i.test(parsed.content);
@@ -563,6 +644,9 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const pluginFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-122');
   if (pluginFinding && (hasPluginPermissionInheritance || (hasSensitiveDataTools && /install_plugin|run_plugin|send_http_request/i.test(parsed.content)))) {
     pluginFinding.severity = 'critical';
+  }
+  if (!findings.some((f) => f.ruleId === 'AGT-086') && /install_plugin|run_plugin/i.test(parsed.content) && /(github|npm|marketplace|direct\s+urls?|any\s+url|external\s+url)/i.test(parsed.content)) {
+    addFinding('AGT-086', /(plugins?\s+may\s+be\s+installed\s+from\s+any\s+url|github|npm|marketplace|direct\s+urls?)/i);
   }
 
   const metadataFinding = findings.find((ruleFinding) => ruleFinding.ruleId === 'AGT-127');
@@ -593,8 +677,8 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const ensure = (id: string, predicate: RegExp, excerpt?: RegExp) => {
     if (!findings.some((f) => f.ruleId === id) && predicate.test(parsed.content)) {
       const match = excerpt ? parsed.content.match(excerpt)?.[0] : undefined;
-      findings.push(finding(id, match));
-    }
+    addFinding(id, excerpt ?? predicate);
+  }
   };
 
   ensure('AGT-086', /fetch\s+arbitrary\s+urls?|arbitrary\s+urls?\s+during\s+cloud/i);
@@ -606,19 +690,57 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   ensure('AGT-123', /user-provided\s+endpoints?|requester\s+provides?\s+a\s+webhook/i);
   ensure('AGT-127', /(169\.254\.169\.254|metadata\.google\.internal|localhost,\s*private\s+ip\s+ranges?,\s*and\s+metadata\s+endpoints?\s+are\s+allowed)/i);
   ensure('AGT-128', /user\s+suggests?\s+a\s+better\s+recipient.*update\s+routing|alert\s+routes?\s+may\s+remain\s+active/i);
+  ensure('AGT-128', /adjust\s+incident\s+notification\s+routing|better\s+responder|escalation\s+contact|external\s+incident\s+consultants?\s+may\s+receive\s+full\s+alert\s+details|routing\s+updates?\s+do\s+not\s+require\s+approval\s+during\s+active\s+incidents/i);
   ensure('AGT-129', /anyone\s+with\s+the\s+link\s+may\s+view|share\s+links?\s+for\s+convenience/i);
   ensure('AGT-130', /support\s+employees?\s+may\s+impersonate\s+users?|impersonation\s+does\s+not\s+require\s+separate\s+approval/i);
+  ensure('AGT-130', /customer[’']?s\s+point\s+of\s+view|start_user_impersonation|login\s+resets?\s+may\s+be\s+performed|audit\s+entries\s+can\s+be\s+summarized/i);
+  ensure('AGT-124', /temporary\s+machine\s+identity|attach\s+broad\s+permissions|apply\s+infrastructure\s+changes?\s+immediately|no\s+second\s+approval\s+is\s+required\s+during\s+active\s+incidents/i);
+  ensure('AGT-124', /update_iam_policies?|iam\s+policy\s+changes?\s+may\s+be\s+applied\s+directly\s+if\s+the\s+engineer\s+says\s+it\s+is\s+urgent/i);
+  ensure('AGT-125', /full\s+operating\s+instructions|hidden\s+routing\s+notes|system-level\s+constraints|tool\s+selection\s+rules?|developer\s+guidance|operational\s+prompts/i);
+  ensure('AGT-126', /temporary\s+access\s+can\s+remain\s+open|no\s+second\s+approval\s+is\s+required\s+during\s+active\s+incidents/i);
+  ensure('AGT-131', /small\s+segments?\s+may\s+include\s+raw\s+identifiers|reports?\s+may\s+include\s+email,\s+company,\s+plan,\s+arr/i);
+  ensure('AGT-132', /detailed\s+logs?\s+may\s+include\s+full\s+request\s+context,\s+customer\s+records,\s+auth\s+claims,\s+headers,\s+cookies/i);
   ensure('AGT-131', /small\s+segments?\s+may\s+include\s+raw\s+identifiers|no\s+minimum\s+cohort\s+size/i);
   ensure('AGT-132', /detailed\s+logs?\s+may\s+include\s+full\s+request\s+context|logs?\s+may\s+be\s+exported\s+to\s+external\s+monitoring/i);
   ensure('AGT-133', /if\s+a\s+support\s+employee\s+says\s+the\s+customer\s+consented,\s+proceed|if\s+a\s+requester\s+says\s+access\s+is\s+needed,\s+grant/i);
   ensure('AGT-126', /expiration\s+dates?\s+are\s+optional|no\s+periodic\s+access\s+review\s+is\s+required|temporary\s+access\s+does\s+not\s+require\s+expiration/i);
   ensure('AGT-098', /reports?\s+may\s+include\s+email,\s+company,\s+plan,\s+arr,\s+usage\s+events,\s+support\s+complaints/i);
-  if (!findings.some((f) => f.ruleId === 'AGT-103') && findings.some((f) => f.ruleId === 'AGT-106') && /future\s+users?/i.test(parsed.content)) findings.push(finding('AGT-103'));
+  if (!findings.some((f) => f.ruleId === 'AGT-103') && findings.some((f) => f.ruleId === 'AGT-106') && /future\s+users?/i.test(parsed.content)) addFinding('AGT-103', /future\s+users?/i);
   if (!findings.some((f) => f.ruleId === 'AGT-026') && findings.some((f) => f.ruleId === 'AGT-092') && /(export|send|share|impersonat|reset\s+password|update\s+routing|terraform|iam)/i.test(parsed.content)) {
-    findings.push(finding('AGT-026'));
+    addFinding('AGT-026', /(no\s+approval|without\s+approval|human\s+approval\s+is\s+not\s+required)/i);
   }
-  if (!findings.some((f) => f.ruleId === 'AGT-026') && /(no\s+approval\s+is\s+required|does\s+not\s+require\s+approval|no\s+separate\s+approval)/i.test(parsed.content) && /(execute|export|share|impersonat|reset\s+password|routing|alert|consultants?|vendors?|access|terraform|iam)/i.test(parsed.content)) findings.push(finding('AGT-026'));
-  if (!findings.some((f) => f.ruleId === 'AGT-133') && /if\s+a\s+requester\s+says\s+access\s+is\s+needed/i.test(parsed.content)) findings.push(finding('AGT-133'));
+  if (!findings.some((f) => f.ruleId === 'AGT-026')
+    && /(no\s+approval\s+is\s+required|does\s+not\s+require\s+approval|no\s+separate\s+approval|human\s+approval\s+is\s+not\s+required|without\s+approval|approval\s+is\s+optional|not\s+required\s+for\s+routine)/i.test(parsed.content)
+    && /(execute|export|share|impersonat|reset\s+password|routing|alert|consultants?|vendors?|access|terraform|iam|plugin|logs?|safe\s+mode|tenant)/i.test(parsed.content)) {
+    addFinding('AGT-026', /(no\s+approval\s+is\s+required|does\s+not\s+require\s+approval|no\s+separate\s+approval|human\s+approval\s+is\s+not\s+required|without\s+approval|approval\s+is\s+optional)/i);
+  }
+  if (!findings.some((f) => f.ruleId === 'AGT-133') && /if\s+a\s+requester\s+says\s+access\s+is\s+needed/i.test(parsed.content)) addFinding('AGT-133', /if\s+a\s+requester\s+says\s+access\s+is\s+needed/i);
+  if (!findings.some((f) => f.ruleId === 'AGT-133') && /(if\s+the\s+staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|user\s+provides?\s+a\s+better\s+responder)/i.test(parsed.content)) {
+    addFinding('AGT-133', /(staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|user\s+provides?\s+a\s+better\s+responder)/i);
+  }
+  if (!findings.some((f) => f.ruleId === 'AGT-026') && /(no\s+strict\s+field\s+allowlist\s+is\s+configured|tenant\s+isolation\s+is\s+recommended\s+but\s+not\s+required|no\s+separate\s+redaction\s+is\s+required|temporary\s+changes\s+do\s+not\s+require\s+approval|no\s+human\s+approval\s+is\s+required)/i.test(parsed.content)) {
+    addFinding('AGT-026', /(not\s+required|without\s+approval|no\s+separate\s+redaction)/i);
+  }
+  if (!findings.some((f) => f.ruleId === 'AGT-026') && /(no\s+[^.\n]{0,40}(approval|review|verification|change\s+window)\s+(is\s+)?(required|needed)|without\s+review|optional\s+approval)/i.test(parsed.content) && /(impersonat|reset|routing|alert|export|share|iam|terraform|plugin|webhook|logs?|payment|tenant|classification)/i.test(parsed.content)) {
+    addFinding('AGT-026', /(no\s+[^.\n]{0,40}(approval|review|verification|change\s+window)\s+(is\s+)?(required|needed)|without\s+review|optional\s+approval)/i);
+  }
+  if (!findings.some((f) => f.ruleId === 'AGT-026')
+    && findings.some((f) => ['AGT-129', 'AGT-130', 'AGT-131', 'AGT-132', 'AGT-123'].includes(f.ruleId))
+    && /(optional|not\s+required|no\s+minimum|no\s+watermarking|no\s+dlp|no\s+recipient\s+verification|no\s+separate\s+approval|no\s+separate\s+redaction|does\s+not\s+require\s+separate\s+approval)/i.test(parsed.content)) {
+    addFinding('AGT-026', /(optional|not\s+required|no\s+minimum|no\s+watermarking|no\s+dlp|no\s+recipient\s+verification|no\s+separate\s+approval|no\s+separate\s+redaction|does\s+not\s+require\s+separate\s+approval)/i);
+  }
+
+  const infraFinding = findings.find((f) => f.ruleId === 'AGT-124');
+  if (infraFinding && /(plan-only|terraform\s+plan\s+only)/i.test(parsed.content) && /(require\s+approval|security\s+review|required)/i.test(parsed.content) && /(cannot\s+grant\s+broad|no\s+admin\s+permissions?|expiration\s+required)/i.test(parsed.content)) {
+    findings.splice(findings.indexOf(infraFinding), 1);
+  }
+
+  for (const f of findings) {
+    if (!f.excerpt) {
+      const line = parsed.content.split('\n').find((l) => l.trim() && (safeControlPattern.test(l) ? false : l.length > 20));
+      if (line) f.excerpt = line.trim();
+    }
+  }
 
   return findings;
 };
