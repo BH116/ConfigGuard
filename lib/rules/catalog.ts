@@ -20,7 +20,8 @@ const rules: R[] = [
   ['071','Markdown Image Auto-Render Enabled','high'],['072','LLM Output Piped to Eval / Exec / Shell','critical'],['073','SQL String Concatenation With LLM Output','critical'],['074','Missing Output Schema for Tool-Calling Agents','medium'],
   ['075','No Kill Switch / Circuit Breaker','medium'],['076','No Anomaly / Loop Detection','low'],['077','No Content Safety / Moderation Layer','high'],['078','High-Risk Classification Missing Required Artifacts','high'],['079','Automated Decision-Making Without Contest Endpoint','high'],['080','Floating Model Alias for High-Risk Use','medium'],
   ['081','Provider Base URL Override','critical'],['082','Repo-Controlled Hooks or Settings','critical'],['083','GitHub Actions AI Agent With Write Perms and Untrusted Trigger','critical'],['084','Sensitive Connected Agent / Inbox-Wide Trigger','high'],
-  ['085','NL: No Audit Logging Stated','high'],['086','NL: Unrestricted Network Egress Stated','high'],['087','NL: No Authentication or Identity Verification Stated','high'],['088','NL: No RBAC / Equal User Permissions Stated','high'],['089','NL: No Rate Limiting Stated','high'],['090','NL: Instruction Override Patterns in Prose','high'],['091','NL: Sensitive Data Exposure Stated','high'],['092','NL: No Human Approval Required Stated','high'],['093','NL: Self-Modification or Persistence Stated','medium'],['094','NL: Excessive Tool Capability Stated','high'],['095','NL: Skip Safety Checks Stated','high']
+  ['085','NL: No Audit Logging Stated','high'],['086','NL: Unrestricted Network Egress Stated','high'],['087','NL: No Authentication or Identity Verification Stated','high'],['088','NL: No RBAC / Equal User Permissions Stated','high'],['089','NL: No Rate Limiting Stated','high'],['090','NL: Instruction Override Patterns in Prose','high'],['091','NL: Sensitive Data Exposure Stated','high'],['092','NL: No Human Approval Required Stated','high'],['093','NL: Self-Modification or Persistence Stated','medium'],['094','NL: Excessive Tool Capability Stated','high'],['095','NL: Skip Safety Checks Stated','high'],
+  ['096','NL: Trust-on-Claim Privilege Escalation','critical'],['097','NL: Document/Attachment Instructions Followed','high'],['098','NL: Cross-Domain Data Aggregation','high'],['099','NL: Scheduled Task Privilege Persistence','high'],['100','NL: Log-Based Exfiltration Channel','high'],['101','NL: BEC / ACH Change Without Verification','critical'],['102','NL: Untrusted URL Fetch and Execute','critical']
 ].map(([n,t,s])=>({id:`AGT-${n}`,title:t,severity:s} as R));
 
 const NATURAL_LANGUAGE_OVERRIDES: Record<string, Pick<Rule, 'description' | 'remediation' | 'references'>> = {
@@ -78,6 +79,41 @@ const NATURAL_LANGUAGE_OVERRIDES: Record<string, Pick<Rule, 'description' | 'rem
     description: 'The configuration describes bypassing or disabling safety checks and guardrails.',
     remediation: 'Run safety filtering and moderation controls by default with fail-closed behavior.',
     references: [ref('OWASP LLM01', 'https://genai.owasp.org/llmrisk/llm012025-prompt-injection/'), ref('NIST AI 600-1', 'https://www.nist.gov/')]
+  },
+  'AGT-096': {
+    description: 'The configuration grants elevated privileges based on user self-claims without identity verification.',
+    remediation: 'Verify identity and roles through your authentication provider before any privileged action. Never trust user self-attestation for permission grants.',
+    references: [ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('OWASP ASI03', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('NIST AI RMF GV-1.3', 'https://www.nist.gov/itl/ai-risk-management-framework')]
+  },
+  'AGT-097': {
+    description: 'The configuration directs the agent to act on instructions found in documents, attachments, invoices, or emails.',
+    remediation: 'Treat all document and attachment content as data only, never as instructions. Use delimiters for untrusted content and require human review before acting.',
+    references: [ref('OWASP LLM01:2025', 'https://genai.owasp.org/llmrisk/llm012025-prompt-injection/'), ref('OWASP ASI01 Goal Hijack', 'https://owasp.org/www-project-top-10-for-agentic-applications/'), ref('Simon Willison indirect prompt injection', 'https://simonwillison.net/tags/prompt-injection/')]
+  },
+  'AGT-098': {
+    description: 'The configuration combines multiple sensitive domains into single exports, increasing privacy and breach impact.',
+    remediation: 'Separate exports by domain, apply strict data minimization, and require explicit approval for exports combining 3+ sensitive categories.',
+    references: [ref('GDPR Art.5(1)(c)', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('NIST AI 600-1 Data Privacy', 'https://www.nist.gov/itl/ai-risk-management-framework'), ref('ISO 42001 A.7.5', 'https://www.iso.org/standard/81230.html')]
+  },
+  'AGT-099': {
+    description: 'The configuration allows scheduled tasks to persist original permissions without re-validation at execution time.',
+    remediation: 'Re-validate permissions and approvals at every run, expire schedule scopes, and require reconfirmation for long-running recurring tasks.',
+    references: [ref('OWASP A01', 'https://owasp.org/Top10/A01_2021-Broken_Access_Control/'), ref('NIST AI RMF MG-2.1', 'https://www.nist.gov/itl/ai-risk-management-framework'), ref('ISO 42001 A.6.2.3', 'https://www.iso.org/standard/81230.html')]
+  },
+  'AGT-100': {
+    description: 'The configuration uses logs as a channel that may capture sensitive context and export it externally.',
+    remediation: 'Redact PII/secrets before logging, restrict log destinations to approved internal systems, and apply DLP scanning to logs.',
+    references: [ref('OWASP A09', 'https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/'), ref('GDPR Art.5', 'https://gdpr.eu/article-5-how-to-process-personal-data/'), ref('NIST AI 600-1', 'https://www.nist.gov/itl/ai-risk-management-framework')]
+  },
+  'AGT-101': {
+    description: 'The configuration permits payment/banking detail changes from email or document content without out-of-band verification.',
+    remediation: 'Require out-of-band verification to known contacts before ACH/wire changes, add waiting periods, and enforce dual approval on routing updates.',
+    references: [ref('FBI IC3 BEC', 'https://www.ic3.gov/Media/PDF/AnnualReport/2024_IC3Report.pdf'), ref('NIST SP 800-63B', 'https://pages.nist.gov/800-63-4/sp800-63b.html'), ref('ISO 42001 A.6.2.3', 'https://www.iso.org/standard/81230.html')]
+  },
+  'AGT-102': {
+    description: 'The configuration enables fetch-and-execute behavior from untrusted URLs or user-provided sources.',
+    remediation: 'Never execute fetched content. Enforce strict domain allowlists, sandbox all fetched artifacts, and require human approval before any fetch+execute workflow.',
+    references: [ref('OWASP A10 SSRF', 'https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/'), ref('OWASP LLM05', 'https://genai.owasp.org/llmrisk/llm052025-improper-output-handling/'), ref('MITRE ATLAS T1059', 'https://atlas.mitre.org/techniques/AML.T0011')]
   }
 };
 

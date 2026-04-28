@@ -42,6 +42,9 @@ describe('fixtures expected findings', () => {
     const nlIds = ids(naturalLanguageMisconfig, 'AGENTS.md');
     expect(nlIds).toEqual(expect.arrayContaining(['AGT-085', 'AGT-086', 'AGT-087', 'AGT-088', 'AGT-089', 'AGT-090', 'AGT-091', 'AGT-092', 'AGT-093', 'AGT-094', 'AGT-095']));
 
+    const enterpriseIds = ids(fixture('enterprise-overpowered-agent.md'), 'AGENTS.md');
+    expect(enterpriseIds).toEqual(expect.arrayContaining(['AGT-096', 'AGT-097', 'AGT-098', 'AGT-099', 'AGT-100', 'AGT-101', 'AGT-102']));
+
     const secretFindings = runSecretsRules(parseConfig(naturalLanguageMisconfig, 'AGENTS.md'))
       .filter((finding) => finding.ruleId === 'AGT-002')
       .map((finding) => finding.excerpt ?? '');
@@ -77,11 +80,12 @@ describe('fixtures expected findings', () => {
       fixture('privileged-container-config.yaml'),
       fixture('vulnerable-framework-requirements.txt'),
       fixture('base-url-override.env'),
-      naturalLanguageMisconfig
+      naturalLanguageMisconfig,
+      fixture('enterprise-overpowered-agent.md')
     ].join('\n\n');
 
     const positives = new Set(ids(combined, 'combo'));
-    expect(RULE_CATALOG).toHaveLength(95);
+    expect(RULE_CATALOG).toHaveLength(102);
     expect(positives.size).toBeGreaterThan(35);
   });
 });
