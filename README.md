@@ -2,7 +2,15 @@
 
 AgentGuard is built for OpenAI Codex and the AGENTS.md workflow, and it also audits other AI coding-agent configurations before they ship.
 
-> Screenshot placeholder: AgentGuard auditing a Codex AGENTS.md config locally in the browser.
+AgentGuard is a browser-local scanner for AI agent configuration files.
+
+You paste in things like AGENTS.md, Cursor rules, MCP configs, or Codex-style settings, and it checks for risky agent misconfigurations. It looks for problems like exposed secrets, unsafe shell or network access, webhook exfiltration, prompt leaks, KB poisoning, memory poisoning, unsafe scheduled tasks, plugin supply-chain risks, cloud metadata SSRF, IAM escalation, public sharing, and sensitive data in logs.
+
+The main idea is simple:
+
+Paste config -> Get security report -> See what is risky -> See why it matters -> Get a suggested fix
+
+It runs in the browser, so the config does not need to leave the user’s machine. It is not a guarantee that an agent is safe, but it helps developers catch common high-risk patterns before shipping agent workflows.
 
 ![AgentGuard preview](public/AGPH.png)
 
@@ -12,9 +20,11 @@ Codex, Cursor, GitHub Copilot, Aider, Continue, Windsurf, Gemini CLI, Claude Cod
 
 ## What it detects
 
-AgentGuard uses a deterministic client-side rule engine with 134 detection rules mapped to OWASP, NIST, and CVE references. Codex and AGENTS.md are first-class inputs, with the same defensive checks applied to all supported agents. It also detects high-risk misconfigurations described in natural-language prose (for example AGENTS.md policy text), not only structured key-value settings.
+AgentGuard uses a deterministic client-side rule engine with 134 detection rules, with rule metadata informed by OWASP, NIST, CVEs, and agent security research. Codex and AGENTS.md are first-class inputs, with the same defensive checks applied to all supported agents. It also detects high-risk misconfigurations described in natural-language prose (for example AGENTS.md policy text), not only structured key-value settings.
 
 AgentGuard now detects sophisticated attack patterns including unsigned plugin supply-chain installs, cloud metadata SSRF exposure, prompt/system instruction disclosure, alert-routing hijack, public-link oversharing, trust-on-claim authorization flaws, unbounded access grants, log-based exfiltration channels, and reusable user-defined workflow abuse.
+
+> AgentGuard is a static analysis aid. It can produce false positives and false negatives. A clean scan does not guarantee that an agent is secure.
 
 | Rule ID | Title | Severity |
 |---|---|---|
@@ -56,6 +66,8 @@ Push this repository to GitHub and import it in Vercel. The app is static-export
 ## Responsible use
 
 AgentGuard audits defensive misconfiguration patterns. Use only on configurations and systems you own or are authorized to assess.
+
+AgentGuard is not a replacement for security review, access review, threat modeling, or runtime monitoring.
 
 ## License
 
