@@ -583,16 +583,15 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   }
 
   // AGT-132: logs/debug bundle exfil channel.
-  const logA = TOOL_CLUSTERS.logExport.test(content) || has(/(log|bundle|debug|diagnostic|trace|packet|payload).{0,40}(include|contain|capture|store|place|write|bundle|attach).{0,80}(header|cookie|token|auth|claim|credential|customer|record|request body|database|session|environment|env var|snapshot|pii|sensitive|raw request|network trace|authentication event)|(full|complete|raw|all|entire)\s+(context|request|response|payload|data|information).{0,40}(bundle|log|debug|diagnostic|trace|packet|collection).{0,40}(include|contain|capture|preserve|store|write)|(authentication event|session token|environment variable snapshot|network trace|raw request payload|auth log|auth claim|cookie|request header).{0,60}(bundle|log|debug|diagnostic|trace|collect|capture|include)|avoid.{0,40}(showing|displaying|returning).{0,40}(sensitive|directly|in chat|to user).{0,60}(but|instead|however|for debugging).{0,40}(place|put|include|write|capture).{0,40}(bundle|log|debug)/i);
-  const logB = TOOL_CLUSTERS.webhookSend.test(content) || has(/(log|bundle|debug|diagnostic|trace).{0,60}(uploaded?|sent|exported?|forwarded|delivered|posted|pushed).{0,60}(s3|bucket|external|user.provided|requester.provided|engineer.provided|runtime|callback|webhook|observability endpoint|specified by|provided by)|(callback url|webhook|observability endpoint|external endpoint|user.provided (url|endpoint|destination)).{0,60}(log|bundle|debug|diagnostic|trace|send|upload|forward)|(upload|send|forward|export|deliver).{0,30}(log|bundle|debug|diagnostic|trace).{0,40}(external|s3|user.provided|runtime|specified|callback|webhook|observability)/i);
-  const logC = has(/(s3 path|bucket path|upload path|destination|endpoint|url).{0,40}(specified|provided|given|defined|configured|set).{0,40}(by|at).{0,20}(engineer|user|requester|runtime|incident time|request time)|(engineer|user|requester|developer).{0,30}(specifies?|provides?|gives?|defines?|selects?|sets?).{0,40}(s3 path|destination|endpoint|location|url|upload target)|no.{0,40}(separate|additional|explicit|redaction|scrubbing|masking|sanitization|dlp).{0,30}(step|pass|required|needed|configured).{0,40}(debug|log|bundle)|(debug|log|bundle|diagnostic).{0,40}(without|no|skip).{0,40}(redaction|scrubbing|masking|sanitization|filtering|dlp)/i);
-  const logSensitive = has(/(auth|token|cookie|credential|customer|request bod|database row|session)/i);
-  if (logA && (logB || logC)) {
-    const logSeverity = logA && logB && logC && logSensitive ? 'critical' : 'high';
-    addFinding('AGT-132', /(debug bundles?|external observability|redaction|auth claims)/i, logSeverity);
-    if (logB && has(/(callback|webhook|endpoint|url).{0,40}(supplied|provided|given|specified).{0,40}(requester|user)/i)) {
-      addFinding('AGT-123', /(callback|webhook|url).{0,40}(supplied|provided).{0,20}(requester|user)/i, 'critical');
-    }
+  const logArtifact = has(/(diagnostic\s+archive|diagnostic\s+bundle|debug\s+archive|support\s+bundle|incident\s+archive|create_diagnostic_archive|upload_archive|export_debug_bundle|write_debug_bundle)/i);
+  const logSensitive = has(/(cookies|authorization\s+headers|auth\s+headers|auth\s+claims|request\s+payloads?|request\s+bodies|user\s+records|customer\s+records|database\s+samples|selected\s+database\s+rows|session\s+context|tokens)/i);
+  const logExternal = has(/(observability\s+vendor|external\s+observability\s+endpoint|callback\s+endpoint|callback\s+url|supplied\s+in\s+the\s+incident\s+ticket|requester-provided\s+endpoint|requester-provided\s+url|http_post|uploaded\s+to\s+vendor|uploaded\s+to\s+an\s+observability\s+vendor)/i);
+  const logNoRedaction = has(/(no\s+extra\s+redaction\s+pass|no\s+separate\s+redaction\s+step|without\s+redaction|no\s+archive\s+redaction|no\s+log\s+redaction|do\s+not\s+go\s+through\s+an\s+extra\s+redaction\s+pass)/i);
+  if (logArtifact && logSensitive && logExternal && logNoRedaction) {
+    addFinding('AGT-132', /(diagnostic\s+archive|debug\s+archive|support\s+bundle|observability\s+vendor|without\s+redaction|auth\s+claims|authorization\s+headers|cookies)/i, 'critical');
+  }
+  if (logExternal && /(callback\s+endpoint|callback\s+url|requester-provided\s+endpoint|requester-provided\s+url|http_post)/i.test(content)) {
+    addFinding('AGT-123', /(callback\s+endpoint|callback\s+url|requester-provided\s+endpoint|requester-provided\s+url|http_post)/i, 'critical');
   }
 
   // AGT-131: analytics re-identification.
@@ -868,9 +867,14 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     findings.splice(findings.indexOf(infraFinding), 1);
   }
 
-  if (/(aggregate\s+metrics?\s+only|minimum\s+cohort\s+size\s+is\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|direct\s+identifiers?.{0,50}(excluded|removed)|external\s+sharing\s+(?:requires|disabled))/i.test(parsed.content)) {
+  const safeAggregateOnly = /(aggregate\s+metrics?\s+only|aggregation\s+only)/i.test(parsed.content);
+  const safeMinimumCohort = /(minimum\s+cohort\s+size|small\s+groups?\s+suppressed)/i.test(parsed.content);
+  const safeNoIdentifiers = /(identifiers?|examples?).{0,40}(excluded|removed)/i.test(parsed.content);
+  const safeExternalControls = /(external\s+sharing\s+(requires\s+legal\/privacy\s+approval|requires\s+legal\s+and\s+privacy\s+approval|disabled))/i.test(parsed.content);
+  if (safeAggregateOnly && safeMinimumCohort && safeNoIdentifiers && safeExternalControls) {
     for (let i = findings.length - 1; i >= 0; i -= 1) {
       if (findings[i].ruleId === 'AGT-131') findings.splice(i, 1);
+      if (findings[i].ruleId === 'AGT-098' && findings[i].severity === 'high') findings.splice(i, 1);
     }
   }
 
