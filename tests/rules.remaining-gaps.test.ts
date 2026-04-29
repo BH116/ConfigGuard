@@ -351,13 +351,13 @@ Auditors receive summaries only, not raw operating prompts.`;
     expect(byId(content, 'AGT-125')).toBeFalsy();
   });
 
-  it('does not fire AGT-130/AGT-133 for read-only verified support debugging controls', () => {
+  it('does not fire high/critical AGT-130 or AGT-133 for read-only verified support debugging controls', () => {
     const content = `The agent cannot open customer-equivalent sessions, impersonate users, or reset credentials.
 Support access is read-only.
 Consent must be verified through the ticketing system.
 Audit logs are immutable and full session data cannot be posted to chat.`;
     const agt130 = byId(content, 'AGT-130');
-    expect(!agt130 || agt130.severity !== 'critical').toBe(true);
+    expect(!agt130 || (agt130.severity !== 'high' && agt130.severity !== 'critical')).toBe(true);
     expect(byId(content, 'AGT-133')).toBeFalsy();
   });
 
@@ -399,6 +399,18 @@ If role information is unavailable, access is denied until verified.`;
   it('fires AGT-031 for explicit unbounded retry language', () => {
     const content = 'The agent should retry failed uploads until they succeed and keep retrying without limit.';
     expect(byId(content, 'AGT-031')).toBeTruthy();
+  });
+
+
+  it('does not fire AGT-131 or high AGT-098 for strict aggregate analytics controls', () => {
+    const content = `Dashboards contain aggregate metrics only.
+Minimum cohort size is 50.
+Names, emails, company names, account notes, support text, revenue identifiers, and individual examples are excluded.
+Small groups are suppressed.
+External sharing requires legal and privacy approval.`;
+    expect(byId(content, 'AGT-131')).toBeFalsy();
+    const agt098 = byId(content, 'AGT-098');
+    expect(!agt098 || agt098.severity !== 'high').toBe(true);
   });
 
   it('does not fire AGT-131 for private analytics minimum cohort controls', () => {

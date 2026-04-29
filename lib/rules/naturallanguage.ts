@@ -896,16 +896,28 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
       if (findings[i].ruleId === 'AGT-103' && findings[i].severity === 'high') findings[i].severity = 'medium';
     }
   }
-  const safeSupportDebug = /(cannot\s+open\s+customer-equivalent\s+sessions?|cannot\s+impersonate\s+users?|cannot\s+reset\s+credentials?|support\s+access\s+is\s+read-only|consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system|audit\s+logs?\s+are\s+immutable|session\s+data\s+cannot\s+be\s+posted\s+to\s+chat)/i.test(parsed.content);
-  if (safeSupportDebug) {
+  const safeSupportControls = [
+    /cannot\s+open\s+customer-equivalent\s+sessions?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,120}impersonate\s+users?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,160}reset\s+credentials?/i,
+    /cannot\s+impersonate\s+users?/i,
+    /cannot\s+reset\s+credentials?/i,
+    /support\s+access\s+is\s+read-only/i,
+    /consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system/i,
+    /audit\s+logs?\s+are\s+immutable/i,
+    /(?:full\s+)?session\s+data\s+cannot\s+be\s+posted\s+to\s+chat/i
+  ];
+  const safeSupportControlCount = safeSupportControls.filter((pattern) => pattern.test(parsed.content)).length;
+  if (safeSupportControlCount >= 5) {
     for (let i = findings.length - 1; i >= 0; i -= 1) {
       if (findings[i].ruleId === 'AGT-130' || findings[i].ruleId === 'AGT-133') findings.splice(i, 1);
     }
   }
 
   const safeAggregateOnly = /(aggregate\s+metrics?\s+only|aggregation\s+only)/i.test(parsed.content);
-  const safeMinimumCohort = /(minimum\s+cohort\s+size|small\s+groups?\s+suppressed)/i.test(parsed.content);
-  const safeNoIdentifiers = /(identifiers?|examples?).{0,40}(excluded|removed)/i.test(parsed.content);
+  const safeMinimumCohort = /(minimum\s+cohort\s+size|small\s+groups?\s+are\s+suppressed)/i.test(parsed.content);
+  const safeNoIdentifiers = /(names?|emails?|company\s+names?|account\s+notes?|support\s+text|revenue\s+identifiers?|individual\s+examples?).{0,160}are\s+excluded/i.test(parsed.content)
+    || /(identifiers?|examples?).{0,60}(excluded|removed)/i.test(parsed.content);
   const safeExternalControls = /(external\s+sharing\s+(requires\s+legal\/privacy\s+approval|requires\s+legal\s+and\s+privacy\s+approval|disabled))/i.test(parsed.content);
   if (safeAggregateOnly && safeMinimumCohort && safeNoIdentifiers && safeExternalControls) {
     for (let i = findings.length - 1; i >= 0; i -= 1) {

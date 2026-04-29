@@ -411,7 +411,22 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   if (has(/\b(?:aggregate\s+metrics?\s+only|minimum\s+cohort\s+size\s+is\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|external\s+sharing\s+requires\s+legal\s+and\s+privacy\s+approval)\b/i)) {
     found.delete('AGT-131');
   }
-  if (has(/\b(?:read-only\s+scoped?\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+password\s+resets?|no\s+screenshots?)\b/i)) {
+  const safeSupportControls = [
+    /cannot\s+open\s+customer-equivalent\s+sessions?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,120}impersonate\s+users?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,160}reset\s+credentials?/i,
+    /cannot\s+impersonate\s+users?/i,
+    /cannot\s+reset\s+credentials?/i,
+    /support\s+access\s+is\s+read-only/i,
+    /consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system/i,
+    /audit\s+logs?\s+are\s+immutable/i,
+    /(?:full\s+)?session\s+data\s+cannot\s+be\s+posted\s+to\s+chat/i
+  ];
+  const safeSupportControlCount = safeSupportControls.filter((pattern) => has(pattern)).length;
+  if (safeSupportControlCount >= 5) {
+    found.delete('AGT-130');
+    found.delete('AGT-133');
+  } else if (has(/\b(?:read-only\s+scoped?\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+password\s+resets?|no\s+screenshots?)\b/i)) {
     const f130 = found.get('AGT-130');
     if (f130 && f130.severity === 'critical') f130.severity = 'high';
   }

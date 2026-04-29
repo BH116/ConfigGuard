@@ -29,7 +29,7 @@ const comboRules: ComboRule[] = [
     required: [
       /(\bview_as\b|\bact_as\b|impersonat|session[\s._]replay|\bbrowse_as\b|\bopen_as_user\b|\blogin_as\b|\bswitch_account\b|view_as_customer|customer-equivalent\s+session|record_browser_session|reconstruct_user_actions|fetch_user_session|capture_(?:dom_snapshot|screen_state))/i
     ],
-    forbidden: /(cannot\s+open\s+customer-equivalent\s+sessions?|cannot\s+impersonate\s+users?|cannot\s+reset\s+credentials?|support\s+access\s+is\s+read-only|consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system|audit\s+logs?\s+are\s+immutable|session\s+data\s+cannot\s+be\s+posted\s+to\s+chat)/i
+    forbidden: /(cannot\s+open\s+customer-equivalent\s+sessions?|cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,120}impersonate\s+users?|cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,160}reset\s+credentials?|cannot\s+impersonate\s+users?|cannot\s+reset\s+credentials?|support\s+access\s+is\s+read-only|consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system|audit\s+logs?\s+are\s+immutable|(?:full\s+)?session\s+data\s+cannot\s+be\s+posted\s+to\s+chat)/i
   },
   {
     id: 'AGT-118',
@@ -89,6 +89,20 @@ export const runComboRules = (parsed: ParsedConfig): Finding[] => {
     }
   }
 
+
+  const safeSupportControls = [
+    /cannot\s+open\s+customer-equivalent\s+sessions?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^\n.]{0,120}impersonate\s+users?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^\n.]{0,160}reset\s+credentials?/i,
+    /cannot\s+impersonate\s+users?/i,
+    /cannot\s+reset\s+credentials?/i,
+    /support\s+access\s+is\s+read-only/i,
+    /consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system/i,
+    /audit\s+logs?\s+are\s+immutable/i,
+    /(?:full\s+)?session\s+data\s+cannot\s+be\s+posted\s+to\s+chat/i
+  ];
+  const safeSupportControlCount = safeSupportControls.filter((pattern) => pattern.test(parsed.content)).length;
+
   const hasImpersonation = /(\bview_as\b|\bact_as\b|impersonat|session[\s._]replay|\bbrowse_as\b|\bopen_as_user\b|\blogin_as\b|\bswitch_account\b|\bcustomer[\s._]view\b|\buser[\s._]session\b|\bredroduce[\s._]as\b|\bsee_as\b|\benter_as\b|\baccess_as\b|view_as_customer|customer-equivalent\s+session|record_browser_session|reconstruct_user_actions|fetch_user_session|capture_(?:dom_snapshot|screen_state))/i.test(parsed.content);
   const hasCredReset = /(reset.pass|reset.cred|reset.login|change.pass|new.token|reissue.cred|rotate.cred|update.credentials|unlock.account|reset_customer_login|reset.*(password|login|credential))/i.test(parsed.content);
   const hasTrustClaim = /(support rep|support agent|engineer|employee).{0,40}(says|states|claims).{0,50}(approved|consented|authorized|permission)|verbal.{0,20}(consent|approval)/i.test(parsed.content);
@@ -101,7 +115,7 @@ export const runComboRules = (parsed: ParsedConfig): Finding[] => {
     + (hasSessionExternalShare ? 2 : 0)
     + (hasAuditWeakening ? 2 : 0)
     + (hasNoApproval ? 2 : 0);
-  if (score >= 5 && !findings.some((f) => f.ruleId === 'AGT-130')) {
+  if (score >= 5 && safeSupportControlCount < 5 && !findings.some((f) => f.ruleId === 'AGT-130')) {
     const f = finding('AGT-130', parsed.content.match(/(customer-equivalent session|view_as_customer|reset_customer_login|support rep says|audit trail entries may be summarized)/i)?.[0]);
     f.severity = score >= 8 ? 'critical' : 'high';
     findings.push(f);
