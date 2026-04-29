@@ -48,7 +48,7 @@ export const runRules = (parsed: ParsedConfig): Finding[] => {
     ...runCveSpecificRules(parsed),
     ...runNaturalLanguageRules(parsed),
     ...runComboRules(parsed),
-    ...runConceptRules(parsed
+    ...runConceptRules(parsed)
   ];
   return all.filter((f, idx) => all.findIndex((x) => x.ruleId === f.ruleId) === idx);
 };
