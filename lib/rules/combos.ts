@@ -27,7 +27,7 @@ const comboRules: ComboRule[] = [
     message:
       'Impersonation/account-takeover workflow: user/session impersonation is paired with weak controls (claim-based consent, credential reset, broad sharing, or weakened audit).',
     required: [
-      /(view.as|act.as|impersonat|session.replay|browse.as|open.as.user|login.as|switch.account|customer.view|user.session|reproduce.as|see.as|enter.as|access.as|view_as_customer|customer-equivalent\s+session)/i
+      /(\bview_as\b|\bact_as\b|impersonat|session[\s._]replay|\bbrowse_as\b|\bopen_as_user\b|\blogin_as\b|\bswitch_account\b|view_as_customer|customer-equivalent\s+session|record_browser_session|reconstruct_user_actions|fetch_user_session|capture_(?:dom_snapshot|screen_state))/i
     ]
   },
   {
@@ -88,7 +88,7 @@ export const runComboRules = (parsed: ParsedConfig): Finding[] => {
     }
   }
 
-  const hasImpersonation = /(view.as|act.as|impersonat|session.replay|browse.as|open.as.user|login.as|switch.account|customer.view|user.session|reproduce.as|see.as|enter.as|access.as|view_as_customer|customer-equivalent\s+session)/i.test(parsed.content);
+  const hasImpersonation = /(\bview_as\b|\bact_as\b|impersonat|session[\s._]replay|\bbrowse_as\b|\bopen_as_user\b|\blogin_as\b|\bswitch_account\b|\bcustomer[\s._]view\b|\buser[\s._]session\b|\bredroduce[\s._]as\b|\bsee_as\b|\benter_as\b|\baccess_as\b|view_as_customer|customer-equivalent\s+session|record_browser_session|reconstruct_user_actions|fetch_user_session|capture_(?:dom_snapshot|screen_state))/i.test(parsed.content);
   const hasCredReset = /(reset.pass|reset.cred|reset.login|change.pass|new.token|reissue.cred|rotate.cred|update.credentials|unlock.account|reset_customer_login|reset.*(password|login|credential))/i.test(parsed.content);
   const hasTrustClaim = /(support rep|support agent|engineer|employee).{0,40}(says|states|claims).{0,50}(approved|consented|authorized|permission)|verbal.{0,20}(consent|approval)/i.test(parsed.content);
   const hasAuditWeakening = /(audit|log).{0,30}(trail|entries|records?).{0,30}(summarized|shortened|truncated|concise|reduced)/i.test(parsed.content);

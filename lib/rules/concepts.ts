@@ -44,14 +44,17 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // ============================================================
   // TRUST PRIMITIVES
   // ============================================================
-  const trustSubjects = '(?:adjuster|requestor|requester|engineer|employee|manager|user|rep|sales|support|caller|partner|vendor|contact|customer|client|sales\\s+team\\s+member|team\\s+lead|lead|coordinator|nurse|care\\s+coordinator|on.call|clinician|physician|pharmacist|operator|analyst|administrator|auditor|advisor|consultant|sponsor)';
+  const trustSubjects = '(?:adjuster|requestor|requester|engineer|employee|manager|user|rep|sales|support|caller|partner|vendor|contact|customer|client|sales\\s+team\\s+member|team\\s+lead|lead|coordinator|nurse|care\\s+coordinator|on.call|clinician|physician|pharmacist|operator|analyst|administrator|auditor|advisor|consultant|sponsor|referring\\s+provider|provider|freelancer|contractor|freelance\\s+contractor|care\\s+provider|security\\s+analyst|analyst)';
  
   const trustOnClaimDirect =
     has(new RegExp(`\\b(if|when)\\b[^.\\n]{0,60}\\b${trustSubjects}\\b[^.\\n]{0,80}\\b(says?|claims?|states?|indicates?|tells?|describes?|confirms?|requests?|mentions?|asserts?|flags?|marks?|labels?|signals?|reports?|contacts?\\s+us\\s+to\\s+say)\\b`, 'i')) ||
     has(new RegExp(`\\bbased\\s+on\\s+(?:a|an|the)?\\s*\\b${trustSubjects}\\b[^.\\n]{0,80}\\b(message|request|statement|claim|word|note|email|slack|description|attestation|flag|mark)\\b`, 'i')) ||
     has(new RegExp(`\\bif\\s+a?\\s*\\b(\\w+\\s+){0,2}${trustSubjects}\\b[^.\\n]{0,80}\\bproceed`, 'i')) ||
     has(/\b(?:supplier|vendor|partner)\s+representative\s+contacts\s+us\s+to\s+say\b/i) ||
-    has(/\b(?:supplier|vendor|partner)\s+(?:representative\s+)?contacts?\s+us\s+and\s+says?\b/i);
+    has(/\b(?:supplier|vendor|partner)\s+(?:representative\s+)?contacts?\s+us\s+and\s+says?\b/i) ||
+    has(/\b(?:freelancer|contractor)\s+reaches\s+out\s+to\s+(?:update|change|modify)\b/i) ||
+    has(/\b(?:contractor|freelancer|user|customer)\s+acknowledges\s+the\s+update\s+is\s+correct\b/i) ||
+    has(/\bpayment\s+processing\s+proceeds\s+once\s+the\s+(?:contractor|supplier|vendor|freelancer)\s+(?:confirms?|acknowledges?|says?)\b/i);
  
   const selfApproval =
     has(/(approve\s+(their|his|her)\s+own|approve\s+own\s+changes?|self.approval)/i) ||
@@ -117,7 +120,8 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     has(/\b(?:api\s+keys?|tokens?|access|service\s+tokens?)\s+(?:do\s+not\s+(?:have\s+automatic\s+expiry|expire\s+automatically)|never\s+expire|do\s+not\s+expire)\b/i) ||
     has(/\bexpiration\s+is\s+optional\b/i) ||
     has(/\bno\s+second\s+approval\b/i) ||
-    has(/\btemporary\s+machine\s+identit/i) ||
+    has(/\bremain\s+in\s+effect\s+until\s+manually\s+(?:cleared|reviewed|revoked|removed)\b/i) ||
+    has(/\b(?:blocked|revoked|isolated|detached|terminated)\s+.{0,30}\bremain\s+in\s+effect\b/i) ||
     has(/\b(?:deleted|modified|detached|terminated)\s+(?:\w+\s+)*\b(?:remain|stay|persist)\s+in\s+(?:effect|their)\s+(?:permanently|modified\s+state)\b/i);
   const bulkGrants =
     has(/\bbulk\s+(?:grant|provision|access)/i) ||
@@ -130,8 +134,8 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // AGT-124
   // ============================================================
   const iamWriteAction =
-    has(/\b(?:update|modify|attach|change|create|provision|grant|assign|deploy|detach|terminate|revoke)\b[^.\n]{0,40}\b(?:iam|access\s+polic|auth\s+polic|service\s+account|role|terraform|infrastructure|permission\s+(?:boundar|polic)|api\s+key|gateway\s+config|rate\s+limit\s+chang|security\s+group|service\s+token|feature\s+access)\b/i) ||
-    has(/\b(?:terraform_apply|update_iam|attach_policy|grant_role|create_service_account|update_iam_policies|update_iam_boundaries|update_auth_policies|deploy_gateway_config|create_api_key|detach_iam_role|modify_security_group|deploy_remediation_script|terminate_ec2_instance|update_permission_policy|grant_feature_access|create_service_token|revoke_feature_access)\b/i);
+    has(/\b(?:update|modify|attach|change|create|provision|grant|assign|deploy|detach|terminate|revoke|block|isolate)\b[^.\n]{0,40}\b(?:iam|access\s+polic|auth\s+polic|service\s+account|role|terraform|infrastructure|permission\s+(?:boundar|polic)|api\s+key|gateway\s+config|rate\s+limit\s+chang|security\s+group|service\s+token|feature\s+access|acl|vpn|firewall|branch\s+protection|repo\s+access|containment\s+polic)\b/i) ||
+    has(/\b(?:terraform_apply|update_iam|attach_policy|grant_role|create_service_account|update_iam_policies|update_iam_boundaries|update_auth_policies|deploy_gateway_config|create_api_key|detach_iam_role|modify_security_group|deploy_remediation_script|terminate_ec2_instance|update_permission_policy|grant_feature_access|create_service_token|revoke_feature_access|update_acl_rules|revoke_vpn_credentials|isolate_endpoint|deploy_containment_policy|block_ip_address|grant_repo_access|create_deploy_key|update_branch_protection|add_to_org)\b/i);
   const infraBypass =
     has(/(?:apply|deploy|update|change|modify|terminate|detach|grant)\b[^.\n]{0,80}(?:directly|immediately|without\s+(?:approval|review|change\s+window|waiting\s+for))/i) ||
     has(/\b(?:hotfix|urgent|emergency|active\s+incident|active\s+customer\s+integration|bypass\s+ci|skip\s+review)\b[^.\n]{0,80}\b(?:apply|deploy|grant|update|approve|allow|proceed)\b/i) ||
@@ -150,16 +154,17 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     has(/\bsmall\s+(?:teams?|cohorts?|segments?|groups?|slices?|accounts?|sets?)\b/i) ||
     has(/\b(?:high.value|premium)\s+segments?\s+with\s+(?:under|fewer\s+than)/i);
   const individualInclusion =
-    has(/\b(?:individual|specific|raw|direct|identifiable|example|per.user|user.level)\s+(?:\w+\s+)?(?:profiles?|accounts?|records?|users?|customers?|companies|usage\s+details?|data|scores?|examples?|details?|contact\s+records?|score\s+breakdowns?)/i) ||
-    has(/\b(?:individual|example|specific)\s+\w+\s+(?:may\s+be\s+|are\s+)?(?:included|exposed|shown|exported|displayed|added)/i);
+    has(/\b(?:individual|specific|raw|direct|identifiable|example|per.user|user.level)\s+(?:\w+\s+){0,2}(?:profiles?|accounts?|records?|users?|customers?|companies|usage\s+details?|data|scores?|examples?|details?|contact\s+records?|score\s+breakdowns?|response\s+patterns?|patterns?|transactions?)\b/i) ||
+    has(/\b(?:individual|example|specific)\s+\w+\s+(?:may\s+be\s+|are\s+)?(?:included|exposed|shown|exported|displayed|added)\b/i);
   const noCohortMin =
-    has(/\bno\s+(?:minimum\s+)?(?:cohort|team\s+size|group\s+size|segment\s+size|threshold|cohort\s+size\s+floor|minimum\s+(?:team|group|cohort)\s+size)\s+(?:threshold\s+)?(?:is\s+)?(?:enforced|required|configured|defined|set|applied|is\s+applied)\b/i) ||
-    has(/\bno\s+(?:cohort\s+size\s+floor|data\s+privacy\s+review|privacy\s+review)\s+is\s+(?:applied|required)\b/i);
+    has(/\bno\s+(?:minimum\s+)?(?:cohort|team\s+size|group\s+size|segment\s+size|threshold|cohort\s+size\s+floor|minimum\s+(?:team|group|cohort)\s+size|group\s+size\s+minimum|privacy\s+impact\s+assessment)\s+(?:threshold\s+)?(?:is\s+)?(?:enforced|required|configured|defined|set|applied|is\s+applied)\b/i) ||
+    has(/\bno\s+(?:cohort\s+size\s+floor|data\s+privacy\s+review|privacy\s+review|group\s+size\s+minimum)\s+is\s+(?:applied|required|enforced)\b/i);
   const identifiersInExport =
     has(/\b(?:name|email|phone|contact|company\s+name|primary\s+contact|customer\s+id|user\s+id|account\s+name|role\s+title|employee\s+id)\b/i) &&
-    has(/\b(?:arr|revenue|spend|usage|churn|nps|complaint|cancellation|engagement|browsing|purchase|score|plan|sentiment|stress|performance|leave|wellness|behavioral|feedback|absence)\b/i);
+    has(/\b(?:arr|revenue|spend|usage|churn|nps|complaint|cancellation|engagement|browsing|purchase|score|plan|sentiment|stress|performance|leave|wellness|behavioral|feedback|absence|turnover|compensation|loyalty|visit\s+frequency)\b/i);
   const reidWeakAnonymization =
-    has(/\b(?:role\s+titles?|pseudonym|tokenized|employee\s+ids?).{0,80}(?:may\s+still\s+|still\s+|can\s+still\s+|can\s+often\s+be\s+).{0,40}(?:identif|matched\s+to)/i);
+    has(/\b(?:role\s+titles?|pseudonym|tokenized|employee\s+ids?|tenure\s+bands?|anonymized\s+ids?).{0,80}(?:may\s+still\s+|still\s+|can\s+still\s+|can\s+often\s+be\s+|often\s+narrow).{0,40}(?:identif|matched\s+to|narrow\s+identification|to\s+(?:one|two|a\s+few))\b/i) ||
+    has(/\b(?:tenure\s+bands?|anonymized\s+labels?|pseudonyms?)\s+within\s+small\s+(?:teams?|groups?|cohorts?)\s+.{0,40}(?:narrow|limit|reduce|identify|identification)\b/i);
   if ((smallCohort || noCohortMin || reidWeakAnonymization) && (individualInclusion || identifiersInExport)) {
     add('AGT-131', /(?:fewer\s+than\s+\w+|small\s+(?:teams?|segments?|cohorts?)|under\s+\d+\s+members?|individual\s+(?:profiles?|usage|scores?|contact\s+records?|score\s+breakdowns?)|no\s+(?:minimum|privacy\s+review|cohort\s+size\s+floor))/i);
   }
@@ -214,7 +219,11 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     has(/\bdelivered?\s+to\s+client\s+portal\s+endpoints?\s+configured\b/i) ||
     has(/\bslack\s+webhook\s+urls?\s+that\s+each\s+(?:product\s+manager|user|pm|manager)\s+configures?\b/i) ||
     has(/\b(?:results?|outputs?|reports?)\s+(?:are\s+)?pushed\s+to\s+(?:slack\s+)?webhook\s+urls?\s+(?:that|which|configured|specified)/i) ||
-    has(/\b(?:portal|slack|dsp|crm|ad\s+platform)\s+(?:endpoint|url|webhook|api)s?\s+(?:are\s+|that\s+(?:each\s+)?)?\b(?:user|manager|pm|account\s+manager|product\s+manager|campaign\s+manager)\s+(?:configures?|sets?|specifies?|provides?)\b/i);
+    has(/\b(?:portal|slack|dsp|crm|ad\s+platform)\s+(?:endpoint|url|webhook|api)s?\s+(?:are\s+|that\s+(?:each\s+)?)?\b(?:user|manager|pm|account\s+manager|product\s+manager|campaign\s+manager)\s+(?:configures?|sets?|specifies?|provides?)\b/i) ||
+    has(/\bmedia\s+platform\s+apis?\s+(?:as\s+)?specified\s+by\s+the\s+(?:campaign\s+lead|campaign\s+manager|marketer|user)\b/i) ||
+    has(/\bpartner\s+api\s+endpoints?\s+that\s+each\s+(?:partner\s+success\s+manager|partner|user|manager)\s+(?:registers?|configures?|sets?\s+up)\b/i) ||
+    has(/\bcrm\s+webhook\s+urls?\s+that\s+each\s+(?:csm|customer\s+success\s+manager|user|manager)\s+(?:configures?|sets?|registers?)\b/i) ||
+    has(/\b(?:outputs?|results?|playbook\s+outputs?)\s+(?:are\s+)?(?:pushed|sent)\s+to\s+(?:crm\s+)?webhook\s+urls?\s+that\s+each\s+(?:csm|manager|user)\s+configures?\b/i);
   if (webhookExfil) {
     add('AGT-123', /(?:webhook|endpoint|sftp|dsp|ad\s+platform|client\s+portal|slack\s+webhook).{0,60}(?:configured|specified|provided)/i);
   }
@@ -282,11 +291,13 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // ============================================================
   const bankingContext = has(/\b(?:banking|payment|wire|ach|routing|tax\s+(?:info|information)|account\s+(?:number|info)|invoice|vendor\s+(?:account|record|profile)|bank\s+account\s+details?|payment\s+(?:record|update|detail))\b/i);
   const vendorAttests =
-    has(/\bif\s+(?:a\s+|the\s+)?(?:vendor|partner|supplier|contractor|counterparty|contact)\s+(?:representative\s+)?(?:says?|confirms?|indicates?|states?|requests?|attests?|tells?)\b/i) ||
-    has(/\bif\s+(?:a\s+|the\s+)?(?:vendor|partner|supplier|contractor|counterparty|contact|customer)\s+(?:email|message|note|representative|contact)\s+(?:says?|confirms?|indicates?|states?|requests?)\b/i) ||
-    has(/\b(?:supplier|vendor|partner)\s+representative\s+contacts\s+us\s+to\s+say\b/i) ||
-    has(/\b(?:supplier|vendor|partner)\s+(?:representative\s+)?contacts?\s+us\s+and\s+says?\b/i) ||
-    has(/\bonce\s+the\s+(?:supplier|vendor|partner)\s+confirms?\b/i);
+    has(/\bif\s+(?:a\s+|the\s+)?(?:vendor|partner|supplier|contractor|counterparty|contact|freelancer|freelance\s+contractor)\s+(?:representative\s+)?(?:says?|confirms?|indicates?|states?|requests?|attests?|tells?)\b/i) ||
+    has(/\bif\s+(?:a\s+|the\s+)?(?:vendor|partner|supplier|contractor|counterparty|contact|customer|freelancer)\s+(?:email|message|note|representative|contact)\s+(?:says?|confirms?|indicates?|states?|requests?)\b/i) ||
+    has(/\b(?:supplier|vendor|partner|freelancer|contractor)\s+representative\s+contacts\s+us\s+to\s+say\b/i) ||
+    has(/\b(?:supplier|vendor|partner|freelancer|contractor)\s+(?:representative\s+)?contacts?\s+us\s+and\s+says?\b/i) ||
+    has(/\bonce\s+the\s+(?:supplier|vendor|partner|contractor|freelancer)\s+(?:confirms?|acknowledges?)\b/i) ||
+    has(/\b(?:freelancer|contractor)\s+reaches\s+out\s+to\s+(?:update|change|modify)\b/i) ||
+    has(/\bpayment\s+processing\s+proceeds\s+once\s+the\s+(?:contractor|supplier|vendor|freelancer)\s+(?:confirms?|acknowledges?)\b/i);
   const updateBasedOnVendorClaim = has(/\b(?:update|set|record|change|modify)[^.\n]{0,60}\b(?:vendor\s+record|banking|payment|ach|account\s+(?:detail|info)|packet|payment\s+record)\b/i);
   if ((bankingContext && vendorAttests) || (updateBasedOnVendorClaim && vendorAttests)) {
     add('AGT-101', /(?:bank\s+account\s+details?|payment\s+record|banking|ach|vendor\s+record|packet).{0,80}(?:says?|confirms?|contacts\s+us|changed|update)/i);
@@ -295,7 +306,7 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // ============================================================
   // AGT-130
   // ============================================================
-  const impersonationTool = has(/\b(?:view_as|act_as|impersonat\w*|session.replay|replay_user_session|reconstruct_user_actions|customer.equivalent|browse_as|open_as_user|reproduce.as|capture_(?:dom_snapshot|screen_state)|fetch_user_session|view\s+as\s+\w+|switch\s+(?:to\s+)?(?:user|account))\b/i);
+  const impersonationTool = has(/\b(?:view_as|act_as|impersonat\w*|session.replay|replay_user_session|reconstruct_user_actions|record_browser_session|capture_network_traffic|customer.equivalent|browse_as|open_as_user|reproduce.as|capture_(?:dom_snapshot|screen_state)|fetch_user_session|view\s+as\s+\w+|switch\s+(?:to\s+)?(?:user|account))\b/i);
   const credentialReset = has(/\b(?:reset_(?:account_)?credentials?|reset_password|reset_login|reset_customer_login|reset_user_token|password\s+reset|change\s+credentials?|reset\s+(?:customer\s+)?(?:login|password|credentials?|token))\b/i);
   const supportConsentClaim =
     has(/\b(?:support\s+(?:rep|engineer|agent|employee|may)?|engineer|team\s+lead)\s+(?:says?|may)\s+(?:the\s+)?(?:customer|user|consented|impersonate)\b/i) ||
@@ -328,11 +339,12 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // AGT-132
   // ============================================================
   const logsContainSensitive =
-    has(/\b(?:log|bundle|debug|diagnostic|trace|payload|session\s+bundle)s?\s+(?:and\s+token\s+snapshots?\s+)?(?:may\s+(?:include|contain)|include|contain|capture)\s+(?:[\w\s,]*?)(?:authentication\s+(?:tokens?|events?)|session\s+tokens?|environment\s+variable|cookies?|auth\s+claims?|customer\s+records?|request\s+headers?|raw\s+request\s+payloads?|database\s+rows?|credentials?|secrets?|tokens?|active\s+authentication)\b/i) ||
+    has(/\b(?:log|bundle|debug|diagnostic|trace|payload|session\s+(?:bundle|recording)|capture\s+log|network\s+trace|har\s+file)s?\s+(?:and\s+token\s+snapshots?\s+)?(?:may\s+(?:include|contain)|include|contain|capture)\s+(?:[\w\s,]*?)(?:authentication\s+(?:tokens?|events?|headers?)|session\s+tokens?|environment\s+variable|cookies?|auth\s+claims?|customer\s+records?|request\s+headers?|raw\s+request\s+payloads?|database\s+rows?|credentials?|secrets?|tokens?|active\s+authentication)\b/i) ||
     has(/\b(?:full|complete|raw|all|entire)\s+(?:user\s+)?session\s+(?:including|with)\s+.{0,60}(?:authentication\s+tokens?|active\s+(?:auth|token)|dom\s+state|network\s+calls?)\b/i) ||
     has(/\b(?:full|complete|raw|all|entire)\s+(?:request\s+)?context\s+(?:into|in)\s+(?:debug\s+)?(?:bundles?|logs?)\b/i) ||
     has(/\bsession\s+bundles?\s+and\s+token\s+snapshots?\b/i) ||
-    has(/\btoken\s+snapshots?\s+(?:may\s+be\s+|are\s+|can\s+be\s+)?(?:posted|shared|sent)\b/i);
+    has(/\btoken\s+snapshots?\s+(?:may\s+be\s+|are\s+|can\s+be\s+)?(?:posted|shared|sent)\b/i) ||
+    has(/\bsession\s+recordings?\s+may\s+include\s+.{0,60}(?:cookies?|authentication\s+headers?|session\s+tokens?|network\s+requests?)\b/i);
   const logsExternalSink =
     has(/\b(?:upload|send|forward|export|deliver|push)\s+(?:logs?|bundles?|debug)\b/i) ||
     has(/\b(?:s3|bucket|external\s+(?:monitoring|endpoint|observability))\s+(?:paths?|endpoints?)?\s+(?:specified|provided|configured)\s+by\s+(?:the\s+)?(?:engineer|user|requester|developer|incident)\b/i) ||
@@ -342,7 +354,8 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   const noLogRedaction =
     has(/\bno\s+(?:separate\s+)?redaction\s+(?:is\s+)?(?:applied|required|configured)\b/i) ||
     has(/\b(?:full\s+context|raw\s+context|complete\s+context)\s+is\s+needed\b/i) ||
-    has(/\bdetailed\s+session\s+logs?\s+are\s+preferred\b/i);
+    has(/\bdetailed\s+session\s+logs?\s+are\s+preferred\b/i) ||
+    has(/\b(?:abbreviated|shortened|brief|minimal)\s+(?:capture\s+|session\s+|har\s+)?(?:logs?|traces?|recordings?)\s+are\s+preferred\b/i);
   if (logsContainSensitive && (logsExternalSink || noLogRedaction)) {
     add('AGT-132',
       /(?:debug\s+bundles?|session\s+bundles?|token\s+snapshots?|external\s+(?:monitoring|observability)|no\s+redaction|auth\s+claims?|session\s+tokens?|posted\s+to\s+(?:engineering\s+)?slack)/i,
@@ -362,7 +375,7 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // ============================================================
   // AGT-040
   // ============================================================
-  const sendsPII = has(/\b(?:send_email|export|emailed|export_csv|export_xlsx|send_to|forward|deliver)\b/i);
+  const sendsPII = has(/\b(?:send_email|export|emailed|export_csv|export_xlsx|send_to|forward|deliver|fax|fax_to|export_to_ehr|fax_to_specialist)\b/i);
   const personalData = has(/\b(?:name|email|phone|ssn|medical|patient|diagnosis|treatment|salary|payroll|customer\s+name|primary\s+contact|address)\b/i);
   const noRedaction = !has(/\b(?:redact|anonymiz|pseudonymi|mask\s+(?:pii|name|email)|no\s+pii|pii\s+(?:redact|removal)|pii_redaction\s*:\s*true)\b/i);
   if (sendsPII && personalData && noRedaction && !hasStrongPrivacyControls) {
