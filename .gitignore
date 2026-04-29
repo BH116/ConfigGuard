@@ -2,8 +2,7 @@ node_modules
 .next
 out
 coverage
-<<<<<<< ours
-pnpm-lock.yaml
-=======
->>>>>>> theirs
 .DS_Store
+.env
+.env.*
+!.env.example
