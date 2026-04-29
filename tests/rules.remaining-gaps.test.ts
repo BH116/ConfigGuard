@@ -208,6 +208,65 @@ No minimum cohort threshold is enforced.`;
     expect(byId(content, 'AGT-131')).toBeTruthy();
     expect(byId(content, 'AGT-098')).toBeTruthy();
   });
+
+  it('detects AGT-104 for help-center KB poisoning phrasing', () => {
+    const content = `# AGENTS.md
+## Agent: KnowledgeCurationBot
+## Tools
+- collect_case_notes
+- import_url_reference
+- refresh_kb_index
+- answer_from_kb
+## Policy
+The agent improves the internal help center by collecting useful notes from support cases, customer screenshots, pasted chat transcripts, and third-party troubleshooting pages.
+After the material is added to the index, future support reps may rely on it when answering similar issues.
+Content does not need formal review before being added because the team values fast knowledge sharing during escalations.`;
+    expect(byId(content, 'AGT-104')).toBeTruthy();
+  });
+
+  it('detects AGT-131 and AGT-098 for executive churn dashboard phrasing', () => {
+    const content = `# AGENTS.md
+## Agent: ChurnAnalyticsBot
+## Tools
+- read_behavior_events
+- read_account_directory
+- read_revenue_history
+- generate_dashboard
+- email_dashboard
+## Policy
+The dashboard is mostly aggregated, but for narrow customer groups it may list representative accounts.
+Fields can include organization name, primary contact, annual spend, plan, activity history, support issues, and churn reason.
+Outside growth advisors may receive the dashboard.
+There is no enforced minimum audience size for a segment.`;
+    expect(byId(content, 'AGT-131')).toBeTruthy();
+    expect(byId(content, 'AGT-098')).toBeTruthy();
+  });
+
+  it('detects AGT-134 and linked AGT-123/AGT-098 for reusable automation recipes', () => {
+    const content = `# AGENTS.md
+## Agent: PartnerSyncBuilder
+## Tools
+- read_salesforce_accounts
+- read_subscription_data
+- map_fields
+- send_to_endpoint
+- save_automation_recipe
+- execute_recipe
+## Policy
+The agent can turn a user’s integration request into a reusable automation recipe.
+Recipes should keep all available fields unless the requester removes them.
+Saved recipes may trigger automatically for future matching requests.
+A recipe can send mapped account and subscription data to a destination URL chosen by the requester.
+Recipes made by employees do not need security review before reuse.`;
+    expect(byId(content, 'AGT-134')).toBeTruthy();
+    expect(byId(content, 'AGT-123')).toBeTruthy();
+    expect(byId(content, 'AGT-098')).toBeTruthy();
+  });
+
+  it('detects AGT-125 for instruction-stack/routing-hints synonyms', () => {
+    const content = `When a trusted developer asks, it may reveal the complete instruction stack, routing hints, hidden constraints, tool-use policy, and developer notes that shaped the response. Internal reviewers should be able to inspect the exact operating instructions.`;
+    expect(byId(content, 'AGT-125')).toBeTruthy();
+  });
 });
 
 describe('safe negatives for remaining gaps', () => {
@@ -234,7 +293,7 @@ describe('safe negatives for remaining gaps', () => {
   });
 
   it('does not fire critical AGT-130 for constrained support access', () => {
-    const content = 'Support uses read-only scoped impersonation only after verified customer consent and supervisor approval, with immutable audit logging. No password resets, no screenshots, and no shared session data are allowed.';
+    const content = 'Support access is read-only and requires verified customer consent, supervisor approval, and immutable audit logging. Credential resets are prohibited, screenshots are prohibited, and shared session data is prohibited.';
     const finding = byId(content, 'AGT-130');
     expect(!finding || finding.severity !== 'critical').toBe(true);
   });
@@ -285,5 +344,35 @@ Customer consent must be confirmed via the customer portal, not via support team
 Role information is verified against the HRIS system, not accepted from requesters.
 If role information is unavailable, access is denied until verified.`;
     expect(byId(content, 'AGT-133')).toBeFalsy();
+  });
+
+  it('does not fire AGT-031 for incident/debugging wording without unbounded loops', () => {
+    const iam = 'Temporary access can stay active while the team continues debugging during active incidents to restore service.';
+    const ssrf = 'During outages, the agent may probe endpoints during ongoing investigation to restore service quickly.';
+    expect(byId(iam, 'AGT-031')).toBeFalsy();
+    expect(byId(ssrf, 'AGT-031')).toBeFalsy();
+  });
+
+  it('fires AGT-031 for explicit unbounded retry language', () => {
+    const content = 'The agent should retry failed uploads until they succeed and keep retrying without limit.';
+    expect(byId(content, 'AGT-031')).toBeTruthy();
+  });
+
+  it('does not fire AGT-131 for private analytics minimum cohort controls', () => {
+    const content = `Dashboards contain aggregate metrics only. Minimum cohort size is 50.
+Names, emails, company names, account notes, support text, revenue identifiers, and individual examples are excluded.
+Small groups are suppressed. External sharing requires legal and privacy approval.`;
+    expect(byId(content, 'AGT-131')).toBeFalsy();
+  });
+
+  it('does not fire AGT-123 or high/critical AGT-134 for safe workflow builder controls', () => {
+    const content = `Workflow templates require security review before saving.
+Templates cannot send data to external URLs, endpoints, or webhooks.
+Templates cannot run automatically.
+Each execution revalidates permissions and approved fields.
+Templates store only approved non-sensitive fields.`;
+    expect(byId(content, 'AGT-123')).toBeFalsy();
+    const finding = byId(content, 'AGT-134');
+    expect(!finding || (finding.severity !== 'high' && finding.severity !== 'critical')).toBe(true);
   });
 });

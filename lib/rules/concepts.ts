@@ -168,6 +168,13 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   if ((smallCohort || noCohortMin || reidWeakAnonymization) && (individualInclusion || identifiersInExport)) {
     add('AGT-131', /(?:fewer\s+than\s+\w+|small\s+(?:teams?|segments?|cohorts?)|under\s+\d+\s+members?|individual\s+(?:profiles?|usage|scores?|contact\s+records?|score\s+breakdowns?)|no\s+(?:minimum|privacy\s+review|cohort\s+size\s+floor))/i);
   }
+  const analyticsSurface =
+    has(/\b(?:churn\s+analysis|executive\s+churn\s+analysis|mostly\s+aggregated|aggregate\s+(?:dashboard|analytics|report)|retention\s+dashboard|revenue\s+dashboard|generate[_-\s]?dashboard|email[_-\s]?dashboard|read[_-\s]?behavior[_-\s]?events|read[_-\s]?account[_-\s]?directory|read[_-\s]?revenue[_-\s]?history)\b/i);
+  const analyticsIdentifiers =
+    has(/\b(?:representative\s+accounts?|example\s+accounts?|organization\s+name|company\s+name|primary\s+contact|annual\s+spend|activity\s+history|support\s+issues?|churn\s+reason)\b/i);
+  const analyticsSmallGroup =
+    has(/\b(?:narrow\s+customer\s+groups?|no\s+(?:enforced\s+)?minimum\s+(?:audience|cohort|segment)\s+(?:size|threshold)|no\s+cohort\s+minimum)\b/i);
+  if (analyticsSurface && analyticsIdentifiers && analyticsSmallGroup) add('AGT-131', /(?:mostly\s+aggregated|narrow\s+customer\s+groups|representative\s+accounts|no\s+enforced\s+minimum\s+audience\s+size)/i);
  
   // ============================================================
   // AGT-134
@@ -203,6 +210,11 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     add('AGT-134', /(?:saved?\s+(?:template|workflow|pipeline)|reusable|user.defined|run\s+automatically|triggered\s+automatically|whenever\s+new\s+data|each\s+month\s+when)/i,
       wfScore >= 10 ? 'critical' : 'high');
   }
+  const recipeSurface = has(/\b(?:save_automation_recipe|execute_recipe|automation\s+recipe|reusable\s+automation\s+recipe|user[’']s\s+integration\s+request|saved\s+recipes?)\b/i);
+  const recipePersistence = has(/\b(?:saved\s+recipes?\s+may\s+trigger\s+automatically|future\s+matching\s+requests|run\s+automatically\s+later)\b/i);
+  const recipeExternal = has(/\b(?:destination\s+url\s+chosen\s+by\s+the\s+requester|send_to_endpoint|endpoint\s+chosen\s+by\s+the\s+requester)\b/i);
+  const recipeDataOrReview = has(/\b(?:keep\s+all\s+available\s+fields|account\s+and\s+subscription\s+data|no\s+security\s+review\s+before\s+reuse)\b/i);
+  if (recipeSurface && (recipePersistence || recipeExternal) && recipeDataOrReview) add('AGT-134', /(?:reusable\s+automation\s+recipe|saved\s+recipes?\s+may\s+trigger|destination\s+url\s+chosen\s+by\s+the\s+requester)/i, recipePersistence && recipeExternal ? 'critical' : 'high');
  
   // ============================================================
   // AGT-123
@@ -269,6 +281,20 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     (noModeration ? 2 : 0);
   if (kbScore >= 6) {
     add('AGT-104', /(?:ingest|index|forum\s+discussion|blog\s+post|community\s+contributor|client.submitted|opposing\s+counsel|available\s+for\s+queries|without\s+(?:moderation|independent\s+verification))/i);
+  }
+  const kbIngestion =
+    has(/\b(?:collect_case_notes|import_url_reference|refresh_kb_index|answer_from_kb|internal\s+help\s+center|knowledge\s+index|kb\s+index|added\s+to\s+the\s+index)\b/i);
+  const kbSource =
+    has(/\b(?:support\s+cases?|customer\s+screenshots?|pasted\s+chat\s+transcripts?|third[-\s]?party\s+troubleshooting\s+pages?|ticket\s+comments?|external\s+articles?)\b/i);
+  const kbFuture =
+    has(/\b(?:future\s+support\s+reps?.{0,40}rely|may\s+rely\s+on\s+it|answering\s+similar\s+issues|used\s+for\s+later\s+answers)\b/i);
+  const kbNoReview =
+    has(/\b(?:does\s+not\s+need\s+formal\s+review|no\s+formal\s+review|no\s+source\s+validation|no\s+provenance|fast\s+knowledge\s+sharing)\b/i);
+  const kbSafety = has(/\b(?:separate\s+untrusted\s+queue|not\s+used\s+for\s+future\s+answers\s+until|reviewer\s+verifies?\s+source\s+provenance)\b/i);
+  if (!kbSafety && kbIngestion && kbSource && (kbFuture || kbNoReview)) add('AGT-104', /(?:help\s+center|added\s+to\s+the\s+index|future\s+support\s+reps|formal\s+review)/i, kbFuture && kbNoReview ? 'critical' : 'high');
+
+  if (has(/(?:reveal|show|provide|display|inspect).{0,40}(?:complete|full|exact)?.{0,20}(instruction\s+stack|operating\s+instructions|developer\s+notes|tool[-\s]?use\s+policy|routing\s+hints|hidden\s+constraints)/i) && !has(/\b(?:never\s+reveal|must\s+never\s+reveal|high-level\s+capability\s+summary)\b/i)) {
+    add('AGT-125', /(?:complete\s+instruction\s+stack|routing\s+hints|hidden\s+constraints|tool[-\s]?use\s+policy|exact\s+operating\s+instructions)/i);
   }
  
   // ============================================================
@@ -382,5 +408,12 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     add('AGT-040', /(?:name|email|phone|ssn|medical|patient|salary|payroll|customer\s+name|primary\s+contact)/i);
   }
  
+  if (has(/\b(?:aggregate\s+metrics?\s+only|minimum\s+cohort\s+size\s+is\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|external\s+sharing\s+requires\s+legal\s+and\s+privacy\s+approval)\b/i)) {
+    found.delete('AGT-131');
+  }
+  if (has(/\b(?:read-only\s+scoped?\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+password\s+resets?|no\s+screenshots?)\b/i)) {
+    const f130 = found.get('AGT-130');
+    if (f130 && f130.severity === 'critical') f130.severity = 'high';
+  }
   return Array.from(found.values());
 };

@@ -504,13 +504,13 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const TOOL_CLUSTERS = {
     impersonation: /(view.as|act.as|impersonat|session.replay|browse.as|open.as.user|login.as|switch.account|customer.view|user.session|reproduce.as|see.as|enter.as|access.as|view_as|as_customer)/i,
     credentialReset: /(reset.pass|reset.cred|reset.login|change.pass|new.token|reissue.cred|rotate.cred|update.credentials|unlock.account|reset_login|reset_customer_login)/i,
-    indexIngestion: /(ingest|update.index|update.kb|add.to.kb|add.to.knowledge|promote.knowledge|refresh.knowledge|index.content|index.document|update_search_index)/i,
+    indexIngestion: /(ingest|update.index|update.kb|add.to.kb|add.to.knowledge|promote.knowledge|refresh.knowledge|index.content|index.document|update_search_index|refresh_kb_index|collect_case_notes|import_url_reference|answer_from_kb|help\s+center|knowledge\s+index|kb\s+index)/i,
     scheduleTask: /(schedul|recurring|automat|cron|periodic|timer|delayed.run|run.later|future.run|edit_task_destination)/i,
-    workflowTemplate: /(save.template|run.template|save.workflow|pipeline|automation.save|reusable|create.workflow|store.workflow|template)/i,
+    workflowTemplate: /(save.template|run.template|save.workflow|pipeline|automation.save|reusable|create.workflow|store.workflow|template|save_automation_recipe|execute_recipe|save_recipe|run_recipe|automation_recipe|automation\s+recipe|save_workflow|run_workflow)/i,
     logExport: /(write.debug|export.debug|write.log|export.log|upload.log|send.bundle|debug.bundle|diagnostic.bundle)/i,
     iamWrite: /(update.iam|create.iam|attach.policy|update.policy|grant.role|assign.role|create.service.account|add.permission|terraform.apply|update_iam_policy|create_service_account)/i,
     webhookSend: /(send.webhook|send.http|post.to|webhook.url|callback.url|integration.url|external.endpoint|send_webhook|send_http_request)/i,
-    analyticsExport: /(export.dashboard|export.report|export.analytics|read.revenue|read.usage.events|read.product.events|read_revenue|read_usage|export_dashboard)/i,
+    analyticsExport: /(export.dashboard|export.report|export.analytics|read.revenue|read.usage.events|read.product.events|read_revenue|read_usage|export_dashboard|read_behavior_events|read_account_directory|read_revenue_history|generate_dashboard|email_dashboard|read_customer_profiles|read_revenue_records|read_revenue_data|generate_report|email_report)/i,
     alertRouting: /(change.escalation|forward.alert|route.alert|update.contact|change.contact|redirect.alert)/i
   };
 
@@ -537,20 +537,20 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const has = (r: RegExp) => r.test(content);
 
   // AGT-104: KB/Search index poisoning concept scoring.
-  const kbAxisA = has(/(ticket|customer|user|external|uploaded|submitted|third.party).{0,60}(index|ingest|add.*to|import.*to|store.*in|update).{0,60}(kb|knowledge|index|corpus|search)|(ingest|index|import|add|store|promote).{0,60}(ticket|comment|customer|external|article|upload|note|document|submission)|(content|documents?|articles?).{0,30}(from|by|provided by).{0,30}(customers?|users?|external|tickets?|uploads?).{0,60}(indexed|ingested|added|stored|imported)|(approved|rejected|dismissed)\s+(appeals?|reports?|cases?|tickets?).{0,60}(added|incorporated|ingested|used|indexed|stored|written).{0,60}(policy|moderation|model|index|config|corpus|knowledge base)|(user.submitted|user.provided|user.reported|community.submitted|public)\s+(reports?|feedback|appeals?|corrections?|suggestions?).{0,60}(added|indexed|incorporated|used|ingested).{0,60}(guide|improve|update|inform|train|adjust).{0,60}(future|model|policy|moderation|decisions?)|(appeal|report|feedback|moderation signal)\s+(outcomes?|results?|data).{0,60}(incorporated|ingested|added|indexed|stored).{0,60}(without|no).{0,30}(review|approval|human check|source validation)/i);
-  const kbAxisB = has(/once indexed.{0,80}(used|reliable|authoritative|trusted|background|context)|(future|later|subsequent|next).{0,60}(answers?|queries?|users?|employees?|requests?|moderation|policy|decisions?|actions?|thresholds?).{0,60}(based on|rely|using|from|background|guided by|informed by)|(background|context).{0,30}(for|in).{0,30}(future|later|subsequent|other).{0,30}(answers?|responses?|queries?)|(guide|improve|update|inform|train|adjust).{0,60}(future|model|policy|moderation|threshold|decision).{0,60}(based on|from|using).{0,60}(incorporated|indexed|stored|ingested).{0,60}(appeal|report|feedback|user signal)/i);
-  const kbAxisC = has(/(no|without|does not require|skips?|routine).{0,40}(source|review|validation|approval|vetting|provenance|check)|(speed|efficiency|time).{0,40}(matters?|important|critical).{0,40}(review|approval|validation)|no.{0,30}(source|review|validation|approval|provenance).{0,30}(required|needed|configured|enforced)/i);
-  const kbSafeControls = has(/(quarantine|quarantined).{0,40}(index|knowledge)|human reviewer must verify|verify source provenance|never treated as authoritative|distinguish reviewed knowledge from untrusted/i);
-  const kbAxes = [kbAxisA, kbAxisB, kbAxisC].filter(Boolean).length;
-  if (kbAxes >= 2 && !kbSafeControls) {
+  const kbIngestion = TOOL_CLUSTERS.indexIngestion.test(content) || has(/(refresh[_-\s]?kb[_-\s]?index|answer[_-\s]?from[_-\s]?kb|help\s+center|knowledge\s+index|kb\s+index|added\s+to\s+the\s+index|add(?:ed)?\s+.{0,30}\s+to\s+the\s+index|collect(?:ing)?\s+useful\s+notes|import[_-\s]?url[_-\s]?reference|collect[_-\s]?case[_-\s]?notes|index\s+material|support\s+knowledge|knowledge\s+curation)/i);
+  const kbUntrustedSource = has(/(support\s+cases?|case\s+notes|customer\s+screenshots?|pasted\s+chat\s+transcripts?|third[-\s]?party\s+troubleshooting\s+pages?|external\s+(?:articles?|pages?|references?|troubleshooting\s+pages)|customer[-\s]?provided\s+(?:material|documents)|uploaded\s+notes?|ticket\s+comments?|pasted\s+chats?|url\s+references?|user\s+notes)/i);
+  const kbFutureTrust = has(/(future\s+support\s+reps?.{0,40}rely|future\s+(?:employees?|users?|reps?).{0,40}(?:rely|use|answer)|may\s+rely\s+on\s+it|rely\s+on\s+it\s+when\s+answering|answering\s+similar\s+issues|reliable\s+background|trusted\s+context|authoritative|used\s+for\s+later\s+answers?|future\s+answers?)/i);
+  const kbNoReview = has(/(does\s+not\s+need\s+formal\s+review|no\s+formal\s+review|without\s+formal\s+review|no\s+source\s+review|no\s+source\s+validation|no\s+provenance|fast\s+knowledge\s+sharing|speed\s+matters|does\s+not\s+require\s+(?:source\s+)?review|routine\s+indexing\s+does\s+not\s+require)/i);
+  const kbSafeControls = has(/(quarantine|quarantined).{0,60}(index|queue|knowledge|kb)|not\s+used\s+for\s+future\s+answers\s+until|human\s+reviewer\s+must\s+verify|verify\s+source\s+provenance|never\s+treated\s+as\s+authoritative|separate\s+reviewed\s+knowledge\s+from\s+untrusted|separate\s+untrusted\s+queue/i);
+  if (!kbSafeControls && kbIngestion && kbUntrustedSource && (kbFutureTrust || kbNoReview)) {
     const kbSignals = [
-      TOOL_CLUSTERS.indexIngestion.test(content) ? 2 : 0,
-      kbAxisA ? 3 : 0,
-      kbAxisB ? 3 : 0,
-      kbAxisC ? 2 : 0
+      kbIngestion ? 3 : 0,
+      kbUntrustedSource ? 3 : 0,
+      kbFutureTrust ? 3 : 0,
+      kbNoReview ? 2 : 0
     ];
-    const severity = kbAxisA && kbAxisB && kbAxisC ? 'critical' : (scoreSignals(kbSignals) === 'critical' ? 'critical' : 'high');
-    addFinding('AGT-104', /(knowledge|index|ingest|source review|future answers)/i, severity);
+    const severity = kbFutureTrust && kbNoReview ? 'critical' : (scoreSignals(kbSignals) === 'critical' ? 'critical' : 'high');
+    addFinding('AGT-104', /(help\s+center|added\s+to\s+the\s+index|future\s+support\s+reps?.{0,40}rely|does\s+not\s+need\s+formal\s+review|knowledge\s+index)/i, severity);
   }
 
   // AGT-130: impersonation/account takeover concept scoring.
@@ -596,28 +596,29 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   }
 
   // AGT-131: analytics re-identification.
-  const reidA = has(/(fewer than|less than|under|below|small cohorts? of)\s+(\d+|five|ten|twenty|fifty).{0,40}(users?|accounts?|customers?|companies|records?|members?).{0,80}(individual|specific|example|identifiable|raw|direct).{0,20}(detail|usage|data|record|information|account)|(small|narrow|granular|individual|specific)\s+(segments?|cohorts?|groups?|slices?|accounts?).{0,40}(include|show|expose|contain|reveal|display).{0,40}(individual|specific|identifiable|raw|direct|example)|(example|sample|specific|individual)\s+(accounts?|users?|customers?|companies|records?).{0,40}(included|shown|displayed|added|exposed).{0,40}(context|clarity|meaning|cause|reason|insight)|for\s+(accounts?|customers?|users?|companies)\s+with\s+(fewer than|less than|under|below)\s+(\d+|five|ten).{0,80}(individual|specific|raw|direct|detailed|identifiable).{0,30}(usage|data|detail|information|record)|(aggregate|summary|anonymized|de.identified).{0,80}(but|however|except|when|if).{0,60}(small|individual|example|specific|single).{0,60}(segment|cohort|group|account|record|user|company)/i);
-  const reidB = has(/no.{0,40}(minimum|min).{0,40}(cohort|group|segment|threshold|size|count)|(k.anonymity|differential.privacy|privacy.threshold|anonymization.threshold).{0,30}(not|no|without|missing|disabled)/i);
-  const reidC = has(/(name|email|company name|contact|account name|identifier|user id|customer id).{0,40}(included|present|added|combined|alongside|along with|together with).{0,40}(arr|revenue|usage|churn|support|nps|health|score|spend|renewal|cancellation|financial|billing)|(arr|revenue|usage|churn|support|nps|health|score|spend|renewal|cancellation).{0,40}(name|email|company|contact|identifier|account).{0,40}(export|report|dashboard|included|combined)|exports?\s+(may\s+|can\s+|will\s+)?(contain|include).{0,100}(name|email|company|arr|plan|usage|support|cancellation|nps|health|score|spend|renewal)|(primary contact|account (owner|manager|contact)|customer (name|email|contact)).{0,60}(included|present|added|combined|exported|report|dashboard)/i);
-  const reidD = has(/(external|outside|third.party|consultant|advisor|agency|partner).{0,40}(receive|access|get|sent|shared|export|dashboard|report)/i);
-  if ((reidA || reidB) && reidC) {
-    addFinding('AGT-131', /(small segments|example accounts|no minimum cohort|contact email|ARR)/i, 'high');
+  const analyticsSurface = TOOL_CLUSTERS.analyticsExport.test(content) || has(/(churn\s+analysis|executive\s+churn|mostly\s+aggregated|aggregate\s+(?:analytics|dashboard|report)|retention\s+dashboard|revenue\s+dashboard|generate[_-\s]?dashboard|email[_-\s]?dashboard|read[_-\s]?behavior[_-\s]?events|read[_-\s]?revenue[_-\s]?history|customer\s+groups?|customer\s+segments?)/i);
+  const analyticsIdentifiers = has(/(representative\s+accounts?|example\s+accounts?|individual\s+examples?|organization\s+name|company\s+name|primary\s+contact|contact\s+email|annual\s+spend|ARR|plan|activity\s+history|usage\s+history|support\s+issues?|support\s+complaints?|churn\s+reason|cancellation\s+notes?)/i);
+  const analyticsSmallGroup = has(/((small|narrow)\s+(?:customer\s+)?(?:groups?|segments?|cohorts?)|no\s+(?:enforced\s+)?minimum\s+(?:audience|cohort|group|segment)\s+(?:size|threshold)|no\s+cohort\s+minimum|there\s+is\s+no\s+enforced\s+minimum\s+audience\s+size)/i);
+  const analyticsExternal = has(/(outside\s+growth\s+advisors?|external\s+strategy\s+consultants?|growth\s+advisors?|consultants?\s+may\s+receive|may\s+receive\s+the\s+dashboard|email[_-\s]?dashboard)/i);
+  const analyticsSafe = has(/(aggregate\s+metrics\s+only|minimum\s+cohort\s+size\s+is\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|identifiers?.{0,40}(excluded|removed)|external\s+sharing\s+requires\s+legal\s+and\s+privacy\s+approval)/i);
+  if (!analyticsSafe && analyticsSurface && analyticsIdentifiers && (analyticsSmallGroup || analyticsExternal)) {
+    addFinding('AGT-131', /(mostly\s+aggregated|narrow\s+customer\s+groups|representative\s+accounts|no\s+enforced\s+minimum\s+audience\s+size)/i, 'high');
     const crossDomain = /(usage|events?)/i.test(content) && /(customer|profile|company|contact)/i.test(content) && /(arr|revenue|billing|invoice)/i.test(content) && /(support|complaint|cancellation|churn)/i.test(content);
-    if (crossDomain) addFinding('AGT-098', /(usage|customer|revenue|support|cancellation)/i, reidD ? 'high' : undefined);
+    if (crossDomain) addFinding('AGT-098', /(organization\s+name|annual\s+spend|activity\s+history|support\s+issues|churn\s+reason|usage|customer|revenue|support|cancellation)/i, analyticsExternal ? 'high' : undefined);
   }
 
   // AGT-134: saved workflows/pipelines from user input.
-  const wfA = TOOL_CLUSTERS.workflowTemplate.test(content) || has(/(user|requester|employee).{0,40}(request|define|create|build|compose|describe).{0,40}(workflow|template|pipeline|automation|integration).{0,40}(saved?|stored?|reusable|persisted?)|(workflow|template|pipeline|automation).{0,40}(saved?|stored?).{0,40}(without|no).{0,40}(review|approval|security.check)/i);
-  const wfB = has(/(saved?|stored?|reusable).{0,40}(workflow|template|pipeline|automation).{0,40}(run|execute|trigger|activate).{0,40}(automatically|later|future|again|on.similar|next.time|when.matching)|(similar|matching|relevant).{0,30}(request|pattern|trigger).{0,40}(activate|trigger|run|execute|invoke).{0,30}(saved?|stored?|template|workflow)/i);
-  const wfC = TOOL_CLUSTERS.webhookSend.test(content) || has(/(workflow|template|pipeline).{0,60}(send|post|forward|deliver|export|upload).{0,60}(webhook|integration.url|callback|external.endpoint|user.provided|configured.by.requester)|(integration.url|webhook|callback.url|external.endpoint).{0,40}(configured|provided|specified|given).{0,40}(requester|user|engineer)/i);
-  const wfD = has(/(preserve|maintain|keep|retain|include).{0,30}(all|full|complete|entire|every).{0,30}(source.fields?|fields?|columns?|data|context|records?)|(do not|don.?t|no|without).{0,40}(filter|minimize|reduce|limit|restrict).{0,40}(fields?|data|columns?|context)/i);
-  if (wfA && wfB) {
-    const wfSeverity = scoreSignals([wfA ? 3 : 0, wfB ? 3 : 0, wfC ? 2 : 0, wfD ? 2 : 0]);
-    addFinding('AGT-134', /(reusable templates?|run automatically|integration URL configured by requester|preserve all fields)/i, wfSeverity === 'critical' ? 'critical' : 'high');
-    if (wfC && has(/(integration.url|webhook|callback.url|external.endpoint).{0,40}(configured|provided|specified|given).{0,40}(requester|user|engineer)/i)) {
-      addFinding('AGT-123', /(integration|webhook|callback).{0,60}(configured|provided).{0,40}(requester|user)/i, 'critical');
+  const workflowSurface = TOOL_CLUSTERS.workflowTemplate.test(content) || has(/(save[_-\s]?automation[_-\s]?recipe|execute[_-\s]?recipe|automation[_-\s]?recipe|automation\s+recipe|reusable\s+(?:automation\s+)?recipe|user[’']s\s+integration\s+request|saved\s+recipes?|save[_-\s]?recipe|run[_-\s]?recipe)/i);
+  const workflowPersistence = has(/(trigger\s+automatically|run\s+automatically|future\s+matching\s+requests|similar\s+future\s+requests|saved\s+recipes?\s+may\s+trigger|execute[_-\s]?recipe|run[_-\s]?template)/i);
+  const workflowData = has(/(keep\s+all\s+available\s+fields|preserve\s+all\s+source\s+fields|account\s+and\s+subscription\s+data|mapped\s+account|subscription\s+data|salesforce\s+accounts?|crm\s+and\s+billing|read[_-\s]?salesforce[_-\s]?accounts|read[_-\s]?subscription[_-\s]?data)/i);
+  const workflowExternal = has(/(destination\s+url\s+chosen\s+by\s+the\s+requester|endpoint\s+chosen\s+by\s+the\s+requester|integration\s+url\s+configured\s+by\s+the\s+requester|send[_-\s]?to[_-\s]?endpoint|send[_-\s]?webhook|requester[-\s]?chosen\s+(?:url|endpoint))/i);
+  const workflowNoReview = has(/(no\s+security\s+review\s+before\s+reuse|do\s+not\s+need\s+security\s+review|no\s+review\s+before\s+(?:reuse|creating)|employees\s+do\s+not\s+need\s+review)/i);
+  if (workflowSurface && (workflowPersistence || workflowExternal) && (workflowData || workflowNoReview)) {
+    addFinding('AGT-134', /(reusable\s+automation\s+recipe|saved\s+recipes?\s+may\s+trigger|destination\s+url\s+chosen\s+by\s+the\s+requester|no\s+security\s+review\s+before\s+reuse)/i, workflowExternal && workflowPersistence && workflowData ? 'critical' : 'high');
+    if (!findings.some((f) => f.ruleId === 'AGT-123') && workflowExternal) {
+      addFinding('AGT-123', /(destination\s+url\s+chosen\s+by\s+the\s+requester|send[_-\s]?to[_-\s]?endpoint|endpoint\s+chosen\s+by\s+the\s+requester)/i, workflowData ? 'critical' : 'high');
     }
-    const wfCrossDomain = /(crm|customer)/i.test(content) && /(billing|financial|revenue)/i.test(content);
+    const wfCrossDomain = /(crm|customer|salesforce|account)/i.test(content) && /(billing|financial|revenue|subscription|payment)/i.test(content);
     if (wfCrossDomain) addFinding('AGT-098', /(crm|customer|billing|financial)/i, 'high');
   }
 
@@ -699,7 +700,10 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     if (existing) existing.severity = 'critical';
   }
 
-  const hasPromptDisclosureIntent = /(show|reveal|display|provide|include|expose)\s+.{0,40}(system\s+prompt|developer\s+(prompt|guidance|rules?)|hidden\s+(instructions?|policies|constraints)|operating\s+instructions?|tool\s+selection\s+rules?|internal\s+routing\s+logic|full\s+prompt)/i.test(parsed.content)
+  const hasPromptDisclosureIntent = /(?:reveal|show|provide|display|inspect).{0,40}(?:complete|full|exact)?.{0,20}(instruction\s+stack|operating\s+instructions|system\s+prompt|developer\s+(?:notes|rules|instructions)|tool[-\s]?use\s+policy|routing\s+hints|hidden\s+constraints|internal\s+constraints)/i.test(parsed.content)
+    || /(?:complete|full|exact)\s+(?:instruction\s+stack|operating\s+instructions)/i.test(parsed.content)
+    || /internal\s+reviewers?\s+should\s+be\s+able\s+to\s+inspect/i.test(parsed.content)
+    || /(show|reveal|display|provide|include|expose)\s+.{0,40}(system\s+prompt|developer\s+(prompt|guidance|rules?)|hidden\s+(instructions?|policies|constraints)|operating\s+instructions?|tool\s+selection\s+rules?|internal\s+routing\s+logic|full\s+prompt)/i.test(parsed.content)
     || /(auditor|internal\s+reviewers?|developers?)\s+.{0,60}(request|inspect|see)\s+.{0,60}(full\s+operating\s+instructions?|operational\s+prompts?|hidden\s+rules?|tool\s+rules?)/i.test(parsed.content)
     || /(transparency|reproducibility|auditing)\s+.{0,60}(includes|requires?)\s+.{0,60}(prompt\s+disclosure|showing\s+rules?|hidden\s+routing|developer\s+rules?)/i.test(parsed.content);
   const hasPromptDisclosureSafety = /(never\s+reveal|never\s+disclose|do\s+not\s+reveal|do\s+not\s+disclose|high-level\s+explanation|high-level\s+summary\s+only).{0,120}(system\s+prompt|developer\s+instructions?|internal\s+routing\s+logic|hidden\s+polic(?:y|ies))/i.test(parsed.content);
@@ -737,7 +741,7 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const hasImpersonationFlow = /(start_user_impersonation|impersonate_user_session|view_as_user|from\s+the\s+customer[’']?s\s+point\s+of\s+view|impersonated\s+session|login\s+resets?\s+may\s+be\s+performed|reset_(password|login_credentials))/i.test(parsed.content);
   const hasClaimedConsent = /(staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|consent\s+claimed\s+by\s+staff|proceed\s+based\s+on\s+claimed\s+consent)/i.test(parsed.content);
   const hasAtoSignals = /(session\s+information|account\s+details\s+may\s+be\s+posted|audit\s+entries\s+can\s+be\s+summarized|no\s+separate\s+approval)/i.test(parsed.content);
-  const hasImpersonationSafe = /(read-only\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+credential\s+reset|no\s+screenshots)/i.test(parsed.content);
+  const hasImpersonationSafe = /(read-only\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+credential\s+resets?|no\s+password\s+resets?|no\s+screenshots)/i.test(parsed.content);
   if (hasImpersonationFlow && (hasClaimedConsent || hasAtoSignals) && !hasImpersonationSafe) {
     addFinding('AGT-130', /(customer[’']?s\s+point\s+of\s+view|staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|login\s+resets?\s+may\s+be\s+performed|audit\s+entries\s+can\s+be\s+summarized)/i, /(reset_|login\s+resets?|no\s+separate\s+approval|claimed\s+consent)/i.test(parsed.content) ? 'critical' : 'high');
   }
@@ -862,6 +866,17 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const infraFinding = findings.find((f) => f.ruleId === 'AGT-124');
   if (infraFinding && /(plan-only|terraform\s+plan\s+only)/i.test(parsed.content) && /(require\s+approval|security\s+review|required)/i.test(parsed.content) && /(cannot\s+grant\s+broad|no\s+admin\s+permissions?|expiration\s+required)/i.test(parsed.content)) {
     findings.splice(findings.indexOf(infraFinding), 1);
+  }
+
+  if (/(aggregate\s+metrics?\s+only|minimum\s+cohort\s+size\s+is\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|direct\s+identifiers?.{0,50}(excluded|removed)|external\s+sharing\s+(?:requires|disabled))/i.test(parsed.content)) {
+    for (let i = findings.length - 1; i >= 0; i -= 1) {
+      if (findings[i].ruleId === 'AGT-131') findings.splice(i, 1);
+    }
+  }
+
+  if (/(read-only\s+scoped?\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+password\s+resets?|no\s+credential\s+resets?|no\s+screenshots)/i.test(parsed.content)) {
+    const agt130 = findings.find((f) => f.ruleId === 'AGT-130');
+    if (agt130 && agt130.severity === 'critical') agt130.severity = 'high';
   }
 
   for (const f of findings) {
