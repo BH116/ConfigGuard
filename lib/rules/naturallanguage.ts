@@ -553,6 +553,17 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     addFinding('AGT-104', /(help\s+center|added\s+to\s+the\s+index|future\s+support\s+reps?.{0,40}rely|does\s+not\s+need\s+formal\s+review|knowledge\s+index)/i, severity);
   }
 
+  // AGT-101: BEC/vendor payment change with weak verification controls.
+  const vendorPaymentSurface = has(/(vendor|supplier).{0,40}(payment|payout|bank|routing|ach|wire|payment\s+method|account\s+details?)/i)
+    || has(/(update[_-\s]?payment[_-\s]?method|change[_-\s]?payment[_-\s]?details?|vendor\s+payment\s+changes?)/i);
+  const paymentChangeAction = has(/(update|change|modify).{0,30}(payment\s+method|bank\s+routing|routing\s+details?|bank\s+account|ach|wire|vendor\s+record)/i)
+    || /update_payment_method/i.test(content);
+  const paymentRequestChannel = has(/(email(?:s|ed)?|message|document|ticket).{0,40}(updated|change|new|request|details?)/i);
+  const weakPaymentVerification = has(/(verification\s+is\s+optional|optional\s+verification|no\s+phone\s+callback\s+is\s+required|no\s+callback\s+is\s+required|no\s+phone\s+verification|routine\s+payment\s+changes?)/i);
+  if (vendorPaymentSurface && paymentChangeAction && paymentRequestChannel && weakPaymentVerification) {
+    addFinding('AGT-101', /(vendor|supplier|ach|routing|update_payment_method|verification\s+is\s+optional|no\s+phone\s+callback)/i, 'high');
+  }
+
   // AGT-130: impersonation/account takeover concept scoring.
   const impSignal = TOOL_CLUSTERS.impersonation.test(content) || has(/(access|view|browse|open|enter).{0,30}(account|session|environment|workspace).{0,30}(as if|from the perspective|from their point of view|as the customer|as the user)|(reproduce|replicate|simulate).{0,30}(customer|user).{0,30}(experience|session|environment|view|account)/i);
   const resetSignal = TOOL_CLUSTERS.credentialReset.test(content) || has(/(reset|change|update|reissue).{0,30}(password|login|credentials?|access).{0,30}(when needed|to complete|during|for reproduction)/i);
@@ -599,7 +610,7 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const analyticsIdentifiers = has(/(representative\s+accounts?|example\s+accounts?|individual\s+examples?|organization\s+name|company\s+name|primary\s+contact|contact\s+email|annual\s+spend|ARR|plan|activity\s+history|usage\s+history|support\s+issues?|support\s+complaints?|churn\s+reason|cancellation\s+notes?)/i);
   const analyticsSmallGroup = has(/((small|narrow)\s+(?:customer\s+)?(?:groups?|segments?|cohorts?)|no\s+(?:enforced\s+)?minimum\s+(?:audience|cohort|group|segment)\s+(?:size|threshold)|no\s+cohort\s+minimum|there\s+is\s+no\s+enforced\s+minimum\s+audience\s+size)/i);
   const analyticsExternal = has(/(outside\s+growth\s+advisors?|external\s+strategy\s+consultants?|growth\s+advisors?|consultants?\s+may\s+receive|may\s+receive\s+the\s+dashboard|email[_-\s]?dashboard)/i);
-  const analyticsSafe = has(/(aggregate\s+metrics\s+only|minimum\s+cohort\s+size\s+is\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|identifiers?.{0,40}(excluded|removed)|external\s+sharing\s+requires\s+legal\s+and\s+privacy\s+approval)/i);
+  const analyticsSafe = has(/(aggregate\s+(?:metrics|dashboards?|reports?)\s+only|minimum\s+cohort\s+size(?:\s+is)?\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|(?:names?|emails?|company\s+names?|account\s+notes|support\s+text|revenue\s+identifiers?|identifiers?|examples?).{0,60}(excluded|removed)|external\s+sharing\s+requires\s+legal\s+and\s+privacy\s+approval)/i);
   if (!analyticsSafe && analyticsSurface && analyticsIdentifiers && (analyticsSmallGroup || analyticsExternal)) {
     addFinding('AGT-131', /(mostly\s+aggregated|narrow\s+customer\s+groups|representative\s+accounts|no\s+enforced\s+minimum\s+audience\s+size)/i, 'high');
     const crossDomain = /(usage|events?)/i.test(content) && /(customer|profile|company|contact)/i.test(content) && /(arr|revenue|billing|invoice)/i.test(content) && /(support|complaint|cancellation|churn)/i.test(content);
@@ -705,7 +716,7 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     || /(show|reveal|display|provide|include|expose)\s+.{0,40}(system\s+prompt|developer\s+(prompt|guidance|rules?)|hidden\s+(instructions?|policies|constraints)|operating\s+instructions?|tool\s+selection\s+rules?|internal\s+routing\s+logic|full\s+prompt)/i.test(parsed.content)
     || /(auditor|internal\s+reviewers?|developers?)\s+.{0,60}(request|inspect|see)\s+.{0,60}(full\s+operating\s+instructions?|operational\s+prompts?|hidden\s+rules?|tool\s+rules?)/i.test(parsed.content)
     || /(transparency|reproducibility|auditing)\s+.{0,60}(includes|requires?)\s+.{0,60}(prompt\s+disclosure|showing\s+rules?|hidden\s+routing|developer\s+rules?)/i.test(parsed.content);
-  const hasPromptDisclosureSafety = /(never\s+reveal|never\s+disclose|do\s+not\s+reveal|do\s+not\s+disclose|high-level\s+explanation|high-level\s+summary\s+only).{0,120}(system\s+prompt|developer\s+instructions?|internal\s+routing\s+logic|hidden\s+polic(?:y|ies))/i.test(parsed.content);
+  const hasPromptDisclosureSafety = /(must\s+not\s+reveal|must\s+never\s+reveal|never\s+reveal|never\s+disclose|do\s+not\s+reveal|do\s+not\s+disclose|summaries?\s+only|not\s+raw\s+operating\s+prompts?|high-level\s+explanation|high\s+level\s+only).{0,140}(system\s+prompts?|developer\s+instructions?|internal\s+routing\s+logic|tool[-\s]?selection|private\s+safety\s+constraints?|hidden\s+polic(?:y|ies))/i.test(parsed.content);
   if (hasPromptDisclosureIntent && !hasPromptDisclosureSafety) {
     addFinding('AGT-125', /(full\s+operating\s+instructions?|hidden\s+routing\s+notes|system-level\s+constraints|tool\s+selection\s+rules?|developer\s+guidance|operational\s+prompts)/i);
   }
@@ -740,7 +751,7 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const hasImpersonationFlow = /(start_user_impersonation|impersonate_user_session|view_as_user|from\s+the\s+customer[’']?s\s+point\s+of\s+view|impersonated\s+session|login\s+resets?\s+may\s+be\s+performed|reset_(password|login_credentials))/i.test(parsed.content);
   const hasClaimedConsent = /(staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|consent\s+claimed\s+by\s+staff|proceed\s+based\s+on\s+claimed\s+consent)/i.test(parsed.content);
   const hasAtoSignals = /(session\s+information|account\s+details\s+may\s+be\s+posted|audit\s+entries\s+can\s+be\s+summarized|no\s+separate\s+approval)/i.test(parsed.content);
-  const hasImpersonationSafe = /(read-only\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+credential\s+resets?|no\s+password\s+resets?|no\s+screenshots)/i.test(parsed.content);
+  const hasImpersonationSafe = /(read-only|read-only\s+impersonation|cannot\s+open\s+customer-equivalent\s+sessions?|cannot\s+impersonate\s+users?|cannot\s+reset\s+credentials?|verified\s+customer\s+consent|consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system|supervisor\s+approval|immutable\s+audit\s+logs?|session\s+data\s+cannot\s+be\s+posted\s+to\s+chat|no\s+credential\s+resets?|no\s+password\s+resets?|no\s+screenshots)/i.test(parsed.content);
   if (hasImpersonationFlow && (hasClaimedConsent || hasAtoSignals) && !hasImpersonationSafe) {
     addFinding('AGT-130', /(customer[’']?s\s+point\s+of\s+view|staff\s+member\s+says\s+the\s+customer\s+gave\s+consent|login\s+resets?\s+may\s+be\s+performed|audit\s+entries\s+can\s+be\s+summarized)/i, /(reset_|login\s+resets?|no\s+separate\s+approval|claimed\s+consent)/i.test(parsed.content) ? 'critical' : 'high');
   }
@@ -865,6 +876,31 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const infraFinding = findings.find((f) => f.ruleId === 'AGT-124');
   if (infraFinding && /(plan-only|terraform\s+plan\s+only)/i.test(parsed.content) && /(require\s+approval|security\s+review|required)/i.test(parsed.content) && /(cannot\s+grant\s+broad|no\s+admin\s+permissions?|expiration\s+required)/i.test(parsed.content)) {
     findings.splice(findings.indexOf(infraFinding), 1);
+  }
+
+  const safeDiagnosticLogging = /(sanitized\s+logs?|logs?\s+must\s+remove\s+(?:cookies|authorization\s+headers|tokens|auth\s+claims|customer\s+records|request\s+bodies|database\s+rows)|cannot\s+be\s+(?:exported|sent).{0,40}(external\s+endpoints?|callback\s+urls?|webhooks?|requester-provided\s+destinations?)|only\s+approved\s+internal\s+observability\s+sinks?)/i.test(parsed.content);
+  const safeWorkflowPersistence = /(security\s+review\s+before\s+saving|templates?\s+cannot\s+send\s+data\s+to\s+external\s+(?:urls?|endpoints?|webhooks?)|templates?\s+cannot\s+run\s+automatically|each\s+execution\s+revalidates\s+permissions|approved\s+(?:non-sensitive\s+)?fields\s+only|store\s+only\s+approved\s+non-sensitive\s+fields)/i.test(parsed.content);
+  if (safeDiagnosticLogging) {
+    for (let i = findings.length - 1; i >= 0; i -= 1) {
+      if (findings[i].ruleId === 'AGT-123' || findings[i].ruleId === 'AGT-132') findings.splice(i, 1);
+    }
+  }
+  if (hasPromptDisclosureSafety) {
+    for (let i = findings.length - 1; i >= 0; i -= 1) {
+      if (findings[i].ruleId === 'AGT-125') findings.splice(i, 1);
+    }
+  }
+  if (safeWorkflowPersistence) {
+    for (let i = findings.length - 1; i >= 0; i -= 1) {
+      if (findings[i].ruleId === 'AGT-123' || findings[i].ruleId === 'AGT-134') findings.splice(i, 1);
+      if (findings[i].ruleId === 'AGT-103' && findings[i].severity === 'high') findings[i].severity = 'medium';
+    }
+  }
+  const safeSupportDebug = /(cannot\s+open\s+customer-equivalent\s+sessions?|cannot\s+impersonate\s+users?|cannot\s+reset\s+credentials?|support\s+access\s+is\s+read-only|consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system|audit\s+logs?\s+are\s+immutable|session\s+data\s+cannot\s+be\s+posted\s+to\s+chat)/i.test(parsed.content);
+  if (safeSupportDebug) {
+    for (let i = findings.length - 1; i >= 0; i -= 1) {
+      if (findings[i].ruleId === 'AGT-130' || findings[i].ruleId === 'AGT-133') findings.splice(i, 1);
+    }
   }
 
   const safeAggregateOnly = /(aggregate\s+metrics?\s+only|aggregation\s+only)/i.test(parsed.content);

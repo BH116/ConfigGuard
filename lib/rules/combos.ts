@@ -28,7 +28,8 @@ const comboRules: ComboRule[] = [
       'Impersonation/account-takeover workflow: user/session impersonation is paired with weak controls (claim-based consent, credential reset, broad sharing, or weakened audit).',
     required: [
       /(\bview_as\b|\bact_as\b|impersonat|session[\s._]replay|\bbrowse_as\b|\bopen_as_user\b|\blogin_as\b|\bswitch_account\b|view_as_customer|customer-equivalent\s+session|record_browser_session|reconstruct_user_actions|fetch_user_session|capture_(?:dom_snapshot|screen_state))/i
-    ]
+    ],
+    forbidden: /(cannot\s+open\s+customer-equivalent\s+sessions?|cannot\s+impersonate\s+users?|cannot\s+reset\s+credentials?|support\s+access\s+is\s+read-only|consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system|audit\s+logs?\s+are\s+immutable|session\s+data\s+cannot\s+be\s+posted\s+to\s+chat)/i
   },
   {
     id: 'AGT-118',
