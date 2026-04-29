@@ -4,7 +4,7 @@ AgentGuard is built for OpenAI Codex and the AGENTS.md workflow, and it also aud
 
 > Screenshot placeholder: AgentGuard auditing a Codex AGENTS.md config locally in the browser.
 
-![AgentGuard screenshot placeholder](./public/og-image.png)
+public/AGPH.png
 
 ## Supported agents
 
