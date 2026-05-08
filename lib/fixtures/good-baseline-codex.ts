@@ -1,4 +1,4 @@
-// Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+// Sample broken configuration for ConfigGuard test fixtures. All secret-shaped values are non-functional placeholders.
 export const goodBaselineCodex = `# AGENTS.md
 Scope: You must only work in ./src and ./tests.
 Do not read .env, secrets/, .aws, .ssh, *.pem, or .netrc.

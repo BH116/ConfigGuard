@@ -1,7 +1,7 @@
-# AgentGuard
+# ConfigGuard
 
 ## Project overview
-AgentGuard is a Next.js 15 static web app that audits AI coding-agent configuration files entirely client-side in the browser. It detects dangerous misconfigurations, explains risk, and suggests hardening steps. There is no backend service.
+ConfigGuard is a Next.js 15 static web app that audits AI coding-agent configuration files entirely client-side in the browser. It detects dangerous misconfigurations, explains risk, and suggests hardening steps. There is no backend service.
 
 ## Setup commands
 - `pnpm install --frozen-lockfile`

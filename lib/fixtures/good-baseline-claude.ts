@@ -1,4 +1,4 @@
-// Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+// Sample broken configuration for ConfigGuard test fixtures. All secret-shaped values are non-functional placeholders.
 export const goodBaselineClaude = `{
   "defaultMode": "default",
   "allow": ["Read(./src/**)", "Edit(./src/**)", "Bash(npm run lint)", "Bash(npm run test:*)", "WebFetch(domain:docs.anthropic.com)", "WebFetch(domain:github.com)"],

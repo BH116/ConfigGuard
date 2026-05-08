@@ -47,7 +47,7 @@ export default function Home() {
         <p>Built by Braxton Hibbs with OpenAI Codex Web for the Handshake and OpenAI Codex Creator Challenge.</p>
         <p><a className="underline" href="/about">About</a> · <a className="underline" href="https://github.com">GitHub</a></p>
         <ResponsibleUseFooter />
-        <p>AgentGuard is provided for informational purposes only. Results are not a guarantee of security. Use at your own risk.</p>
+        <p>ConfigGuard is provided for informational purposes only. Results are not a guarantee of security. Use at your own risk.</p>
       </footer>
     </main>
   );

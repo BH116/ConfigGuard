@@ -1,4 +1,4 @@
-# Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+# Sample broken configuration for ConfigGuard test fixtures. All secret-shaped values are non-functional placeholders.
 privileged: true
 volumes:
   - /var/run/docker.sock:/var/run/docker.sock

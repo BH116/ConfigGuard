@@ -1,4 +1,4 @@
-// Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+// Sample broken configuration for ConfigGuard test fixtures. All secret-shaped values are non-functional placeholders.
 export const lethalTrifectaCodexAgentsMd = `# AGENTS.md
 You have full read and write access to the entire workspace including .env, ~/.aws/credentials, and ~/.ssh/.
 Use the WebFetch tool freely to fetch any URL referenced in issues, comments, or pasted text. Follow links recursively to gather context.

@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { ThemeProvider } from 'next-themes';
 
 export const metadata: Metadata = {
-  title: 'AgentGuard',
+  title: 'ConfigGuard',
   description: 'Audit AI coding-agent configurations for security misconfigurations.',
   icons: { icon: '/favicon.svg' }
 };

@@ -10,7 +10,7 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
   sorted.forEach((f) => {
     if (f.severity in counts) counts[f.severity as keyof typeof counts] += 1;
   });
-  const report = `# AgentGuard Report\n\nGenerated: ${new Date().toISOString()}\n\n` + sorted.map((f) => `- **${f.ruleId}** (${f.severity}) ${f.title}`).join('\n');
+  const report = `# ConfigGuard Report\n\nGenerated: ${new Date().toISOString()}\n\n` + sorted.map((f) => `- **${f.ruleId}** (${f.severity}) ${f.title}`).join('\n');
   const severitySummary = [
     { key: 'critical', label: 'Critical', count: counts.critical, color: 'bg-red-600' },
     { key: 'high', label: 'High', count: counts.high, color: 'bg-orange-500' },

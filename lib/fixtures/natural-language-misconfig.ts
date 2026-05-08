@@ -1,4 +1,4 @@
-// Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+// Sample broken configuration for ConfigGuard test fixtures. All secret-shaped values are non-functional placeholders.
 export const naturalLanguageMisconfig = `# AI Operations Assistant
 
 ## Purpose

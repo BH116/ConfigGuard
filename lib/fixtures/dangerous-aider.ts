@@ -1,4 +1,4 @@
-// Sample broken configuration for AgentGuard test fixtures. All secret-shaped values are non-functional placeholders.
+// Sample broken configuration for ConfigGuard test fixtures. All secret-shaped values are non-functional placeholders.
 export const dangerousAider = `openai-api-key: sk-proj-placeholder-not-real-1234567890
 yes-always: true
 auto-commits: true
