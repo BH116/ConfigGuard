@@ -1,6 +1,8 @@
 import { RULE_CATALOG } from './catalog';
 import { Finding } from './types';
 
+export const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export const getRule = (id: string) => {
   const rule = RULE_CATALOG.find((r) => r.id === id);
   if (!rule) throw new Error(`Missing rule ${id}`);
@@ -45,11 +47,11 @@ export const shannonEntropy = (s: string): number => {
 };
 
 export const hasInvisibleUnicode = (text: string): boolean => {
-  return /[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF\u{E0000}-\u{E007F}\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]/u.test(text);
+  return /[​-‏‪-‮⁠-⁯﻿\u{E0000}-\u{E007F}\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}]/u.test(text);
 };
 
 export const hasAnsiEscapes = (text: string): boolean => {
-  return /\x1b\[|\u001b\[|\\033\[/.test(text);
+  return /\x1b\[|\[|\\033\[/.test(text);
 };
 
 export const isMutableRef = (ref: string): boolean => {

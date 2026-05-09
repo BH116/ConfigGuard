@@ -32,11 +32,13 @@ export function Auditor() {
   const [type, setType] = useState<FileType>('auto');
   const [findings, setFindings] = useState<Finding[]>([]);
   const [selectedFileName, setSelectedFileName] = useState('');
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [sizeError, setSizeError] = useState<string | null>(null);
 
   return <section id="auditor" className="grid gap-6 md:grid-cols-2">
     <div className="space-y-3">
       <FileTypeTabs value={type} onChange={setType} />
-      <textarea className="h-72 w-full rounded border p-3" value={text} onChange={(e) => setText(e.target.value)} placeholder="Paste configuration..." />
+      <textarea className="h-72 w-full rounded border p-3" value={text} onChange={(e) => { setText(e.target.value); setParseError(null); setSizeError(null); }} placeholder="Paste configuration..." />
       <div className="flex items-center gap-3">
         <label className="inline-flex cursor-pointer items-center rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white hover:bg-slate-800">
           <span>Upload config file</span>
@@ -47,7 +49,13 @@ export function Auditor() {
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (!file) return;
-              if (file.size > 1024 * 1024) alert('Warning: file over 1MB');
+              setParseError(null);
+              setSizeError(null);
+              const MAX_BYTES = 2 * 1024 * 1024;
+              if (file.size > MAX_BYTES) {
+                setSizeError('This file is too large to scan (max 2MB). ConfigGuard scans configuration files, not full codebases — paste the relevant section instead.');
+                return;
+              }
               setSelectedFileName(file.name);
               setText(await file.text());
             }}
@@ -59,8 +67,29 @@ export function Auditor() {
         <option className="bg-slate-800 text-white" value="">Try a sample</option>
         {samples.map((s) => <option className="bg-slate-800 text-white" key={s.key} value={s.key}>{s.label}</option>)}
       </select>
-      <button className="rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-6 py-2 text-sm font-semibold text-white transition-colors cursor-pointer" onClick={() => setFindings(runRules(parseConfig(text, undefined, type)))}>Audit</button>
+      <button className="rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-6 py-2 text-sm font-semibold text-white transition-colors cursor-pointer" onClick={() => {
+        setParseError(null);
+        setSizeError(null);
+        const MAX_BYTES = 2 * 1024 * 1024;
+        if (new Blob([text]).size > MAX_BYTES) {
+          setSizeError('This file is too large to scan (max 2MB). ConfigGuard scans configuration files, not full codebases — paste the relevant section instead.');
+          setFindings([]);
+          return;
+        }
+        const parsed = parseConfig(text, undefined, type);
+        if (parsed.parseError) {
+          setParseError(parsed.parseError);
+          setFindings([]);
+          return;
+        }
+        setFindings(runRules(parsed));
+      }}>Audit</button>
     </div>
-    <div>{findings.length===0 ? <p className="rounded border p-6 text-slate-500">Paste a config to begin</p> : <FindingsList findings={findings} />}</div>
+    <div>
+      {sizeError ? <p className="rounded border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">{sizeError}</p> :
+       parseError ? <p className="rounded border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-400">{parseError}</p> :
+       findings.length === 0 ? <p className="rounded border p-6 text-slate-500">Paste a config to begin</p> :
+       <FindingsList findings={findings} />}
+    </div>
   </section>;
 }

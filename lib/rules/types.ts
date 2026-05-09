@@ -45,6 +45,7 @@ export interface ParsedConfig {
   json?: Record<string, unknown>;
   yaml?: Record<string, unknown>;
   normalized: NormalizedAgentConfig;
+  parseError?: string;
 }
 
 export interface Finding {

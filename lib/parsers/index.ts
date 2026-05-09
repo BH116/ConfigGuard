@@ -29,8 +29,16 @@ const detectType = (fileName?: string, content = ''): FileType => {
   return 'auto';
 };
 
+const EMPTY_NORMALIZED = { kind: 'auto' as FileType, raw: '', allowList: [], denyList: [], mcpServers: {}, env: {}, hooks: [], additionalDirectories: [] };
+
 export const parseConfig = (content: string, fileName?: string, selectedType?: FileType): ParsedConfig => {
-  const safe = textSchema.parse(content);
+  let safe: string;
+  try {
+    safe = textSchema.parse(content);
+  } catch {
+    return { fileType: 'auto', fileName, content: '', normalized: EMPTY_NORMALIZED, parseError: 'Could not parse this file as YAML. Check for syntax errors (indentation, colons, quotes) and try again.' };
+  }
+
   const fileType = selectedType && selectedType !== 'auto' ? selectedType : detectType(fileName, safe);
   let json: Record<string, unknown> | undefined;
   let yaml: Record<string, unknown> | undefined;
