@@ -7,14 +7,14 @@ export default function Home() {
     <main className="mx-auto max-w-6xl space-y-10 p-6">
       <header className="space-y-4">
         <div className="flex items-start justify-between gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 140" fill="none" className="h-12 w-auto">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 580 140" fill="none" className="h-12 w-auto">
             <g transform="translate(10,10)">
               <path d="M 30 18 L 18 18 L 18 70 L 60 102 L 102 70 L 102 18 L 90 18" stroke="currentColor" strokeWidth="13.2" strokeLinejoin="miter" strokeLinecap="butt" fill="none" />
               <path d="M 42 60 L 55 73 L 80 48" stroke="#1f9d6b" strokeWidth="12.5" strokeLinejoin="miter" strokeLinecap="butt" fill="none" />
             </g>
-            <g transform="translate(160,0)" fontFamily="'Inter Tight', Inter, system-ui, sans-serif" fontWeight="600" fontSize="76" letterSpacing="-2.66" dominantBaseline="middle">
-              <text x="0" y="76" fill="currentColor">Agent</text>
-              <text x="200" y="76" fill="#1f9d6b">Guard</text>
+            <g transform="translate(160,0)" fontFamily="'Instrument Sans', system-ui, -apple-system, 'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="600" fontSize="76" letterSpacing="-3.42">
+              <text x="0" y="86" fill="currentColor">Config</text>
+              <text x="207" y="86" fill="#1f9d6b">Guard</text>
             </g>
           </svg>
           <ThemeToggle />
