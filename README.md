@@ -1,6 +1,6 @@
 # ConfigGuard
 
-https://agent-guard-five.vercel.app
+https://config-guard-five.vercel.app/
 
 ConfigGuard is built for OpenAI Codex and the AGENTS.md workflow, and it also audits other AI coding-agent configurations before they ship.
 
