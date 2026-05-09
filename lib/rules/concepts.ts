@@ -1,6 +1,14 @@
 import { Finding, ParsedConfig } from './types';
 import { finding } from './helpers';
- 
+
+// Module-level pre-compiled patterns (never reconstructed per call)
+const _TRUST_SUBJECTS = '(?:adjuster|requestor|requester|engineer|employee|manager|user|rep|sales|support|caller|partner|vendor|contact|customer|client|sales\\s+team\\s+member|team\\s+lead|lead|coordinator|nurse|care\\s+coordinator|on.call|clinician|physician|pharmacist|operator|analyst|administrator|auditor|advisor|consultant|sponsor|referring\\s+provider|provider|freelancer|contractor|freelance\\s+contractor|care\\s+provider|security\\s+analyst|analyst)';
+const TRUST_CLAIM_RE_1 = new RegExp(`\\b(if|when)\\b[^.\\n]{0,60}\\b${_TRUST_SUBJECTS}\\b[^.\\n]{0,80}\\b(says?|claims?|states?|indicates?|tells?|describes?|confirms?|requests?|mentions?|asserts?|flags?|marks?|labels?|signals?|reports?|contacts?\\s+us\\s+to\\s+say)\\b`, 'i');
+const TRUST_CLAIM_RE_2 = new RegExp(`\\bbased\\s+on\\s+(?:a|an|the)?\\s*\\b${_TRUST_SUBJECTS}\\b[^.\\n]{0,80}\\b(message|request|statement|claim|word|note|email|slack|description|attestation|flag|mark)\\b`, 'i');
+const TRUST_CLAIM_RE_3 = new RegExp(`\\bif\\s+a?\\s*\\b(\\w+\\s+){0,2}${_TRUST_SUBJECTS}\\b[^.\\n]{0,80}\\bproceed`, 'i');
+const _NUMBER_WORD = /(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|fifty|hundred|\d+\s*hundred)/i;
+const SMALL_COHORT_COUNT_RE = new RegExp(`\\b(?:fewer|less|under|below)\\s+than\\s+${_NUMBER_WORD.source}\\b`, 'i');
+
 /**
  * Concept-based detection layer.
  *
@@ -25,11 +33,15 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
  
   const add = (id: string, excerptRegex?: RegExp, severity?: Finding['severity']) => {
     if (found.has(id)) {
-      if (severity) found.get(id)!.severity = severity;
+      if (severity) {
+        const existing = { ...found.get(id)! };
+        existing.severity = severity;
+        found.set(id, existing);
+      }
       return;
     }
     const excerpt = excerptRegex ? c.match(excerptRegex)?.[0] : undefined;
-    const f = finding(id, excerpt);
+    const f = { ...finding(id, excerpt) };
     if (severity) f.severity = severity;
     found.set(id, f);
   };
@@ -44,12 +56,10 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // ============================================================
   // TRUST PRIMITIVES
   // ============================================================
-  const trustSubjects = '(?:adjuster|requestor|requester|engineer|employee|manager|user|rep|sales|support|caller|partner|vendor|contact|customer|client|sales\\s+team\\s+member|team\\s+lead|lead|coordinator|nurse|care\\s+coordinator|on.call|clinician|physician|pharmacist|operator|analyst|administrator|auditor|advisor|consultant|sponsor|referring\\s+provider|provider|freelancer|contractor|freelance\\s+contractor|care\\s+provider|security\\s+analyst|analyst)';
- 
   const trustOnClaimDirect =
-    has(new RegExp(`\\b(if|when)\\b[^.\\n]{0,60}\\b${trustSubjects}\\b[^.\\n]{0,80}\\b(says?|claims?|states?|indicates?|tells?|describes?|confirms?|requests?|mentions?|asserts?|flags?|marks?|labels?|signals?|reports?|contacts?\\s+us\\s+to\\s+say)\\b`, 'i')) ||
-    has(new RegExp(`\\bbased\\s+on\\s+(?:a|an|the)?\\s*\\b${trustSubjects}\\b[^.\\n]{0,80}\\b(message|request|statement|claim|word|note|email|slack|description|attestation|flag|mark)\\b`, 'i')) ||
-    has(new RegExp(`\\bif\\s+a?\\s*\\b(\\w+\\s+){0,2}${trustSubjects}\\b[^.\\n]{0,80}\\bproceed`, 'i')) ||
+    has(TRUST_CLAIM_RE_1) ||
+    has(TRUST_CLAIM_RE_2) ||
+    has(TRUST_CLAIM_RE_3) ||
     has(/\b(?:supplier|vendor|partner)\s+representative\s+contacts\s+us\s+to\s+say\b/i) ||
     has(/\b(?:supplier|vendor|partner)\s+(?:representative\s+)?contacts?\s+us\s+and\s+says?\b/i) ||
     has(/\b(?:freelancer|contractor)\s+reaches\s+out\s+to\s+(?:update|change|modify)\b/i) ||
@@ -148,9 +158,8 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
   // ============================================================
   // AGT-131
   // ============================================================
-  const numberWord = /(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|fifty|hundred|\d+\s*hundred)/i;
   const smallCohort =
-    new RegExp(`\\b(?:fewer|less|under|below)\\s+than\\s+${numberWord.source}\\b`, 'i').test(c) ||
+    SMALL_COHORT_COUNT_RE.test(c) ||
     has(/\bsmall\s+(?:teams?|cohorts?|segments?|groups?|slices?|accounts?|sets?)\b/i) ||
     has(/\b(?:high.value|premium)\s+segments?\s+with\s+(?:under|fewer\s+than)/i);
   const individualInclusion =
@@ -210,7 +219,7 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     add('AGT-134', /(?:saved?\s+(?:template|workflow|pipeline)|reusable|user.defined|run\s+automatically|triggered\s+automatically|whenever\s+new\s+data|each\s+month\s+when)/i,
       wfScore >= 10 ? 'critical' : 'high');
   }
-  const recipeSurface = has(/\b(?:save_automation_recipe|execute_recipe|automation\s+recipe|reusable\s+automation\s+recipe|user[’']s\s+integration\s+request|saved\s+recipes?)\b/i);
+  const recipeSurface = has(/\b(?:save_automation_recipe|execute_recipe|automation\s+recipe|reusable\s+automation\s+recipe|user['"]s\s+integration\s+request|saved\s+recipes?)\b/i);
   const recipePersistence = has(/\b(?:saved\s+recipes?\s+may\s+trigger\s+automatically|future\s+matching\s+requests|run\s+automatically\s+later)\b/i);
   const recipeExternal = has(/\b(?:destination\s+url\s+chosen\s+by\s+the\s+requester|send_to_endpoint|endpoint\s+chosen\s+by\s+the\s+requester)\b/i);
   const recipeDataOrReview = has(/\b(?:keep\s+all\s+available\s+fields|account\s+and\s+subscription\s+data|no\s+security\s+review\s+before\s+reuse)\b/i);
