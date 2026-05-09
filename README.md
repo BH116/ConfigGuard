@@ -14,7 +14,7 @@ Paste config -> Get security report -> See what is risky -> See why it matters -
 
 It runs in the browser, so the config does not need to leave the user’s machine. It is not a guarantee that an agent is safe, but it helps developers catch common high-risk patterns before shipping agent workflows.
 
-![ConfigGuard preview](public/AGPH.png)
+![ConfigGuard preview](public/AGPH1.png)
 
 ## Supported agents
 
