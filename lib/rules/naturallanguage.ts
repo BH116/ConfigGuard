@@ -1,5 +1,5 @@
 import { Finding, ParsedConfig } from './types';
-import { finding } from './helpers';
+import { finding, escapeRegExp } from './helpers';
 
 type PatternRule = {
   id: string;
@@ -481,9 +481,11 @@ const naturalLanguageRules: PatternRule[] = [
   }
 ];
 
+const AGGREGATION_TERMS = ['customer', 'vendor', 'employee', 'billing', 'payment', 'financial', 'medical', 'tax', 'ach', 'bank', 'salary', 'hr', 'contract', 'invoice'];
+const AGGREGATION_TERM_RES = AGGREGATION_TERMS.map((term) => new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i'));
+
 export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
   const findings: Finding[] = [];
-  const aggregationTerms = ['customer', 'vendor', 'employee', 'billing', 'payment', 'financial', 'medical', 'tax', 'ach', 'bank', 'salary', 'hr', 'contract', 'invoice'];
   const normalizedContent = parsed.content.toLowerCase();
   const safeControlPattern = /(never|do\s+not|must\s+not|only|require|requires|verified|verification|approval|review|immutable|quarantin(?:e|ed)|allowlist|fixed\s+recipients?|revalidate|re-check|high-level\s+summary)/i;
   const snippet = (pattern: RegExp) => parsed.content.match(pattern)?.[0];
@@ -670,9 +672,9 @@ export const runNaturalLanguageRules = (parsed: ParsedConfig): Finding[] => {
     const maxWindow = 200;
     for (let index = 0; index < normalizedContent.length; index += 1) {
       const window = normalizedContent.slice(index, index + maxWindow);
-      const presentTerms = aggregationTerms.filter((term) => new RegExp(`\\b${term}\\b`, 'i').test(window));
-      if (new Set(presentTerms).size >= 4) {
-        addFinding('AGT-098', new RegExp(window.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+      const matchCount = AGGREGATION_TERM_RES.filter((re) => re.test(window)).length;
+      if (matchCount >= 4) {
+        addFinding('AGT-098', new RegExp(escapeRegExp(window), 'i'));
         break;
       }
     }
