@@ -43,7 +43,11 @@ export const parseConfig = (content: string, fileName?: string, selectedType?: F
   let json: Record<string, unknown> | undefined;
   let yaml: Record<string, unknown> | undefined;
   try { json = JSON.parse(safe) as Record<string, unknown>; } catch {}
-  try { yaml = YAML.parse(safe) as Record<string, unknown>; } catch {}
+  try { yaml = YAML.parse(safe) as Record<string, unknown>; } catch (err) {
+    if (json === undefined) {
+      return { fileType, fileName, content: safe, normalized: EMPTY_NORMALIZED, parseError: `Could not parse this file as YAML. Check for syntax errors (indentation, colons, quotes) and try again.` };
+    }
+  }
 
   const normalized =
     fileType === 'codex' ? parseCodexConfig(safe) :

@@ -437,7 +437,7 @@ export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
     found.delete('AGT-133');
   } else if (has(/\b(?:read-only\s+scoped?\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+password\s+resets?|no\s+screenshots?)\b/i)) {
     const f130 = found.get('AGT-130');
-    if (f130 && f130.severity === 'critical') f130.severity = 'high';
+    if (f130 && f130.severity === 'critical') found.set('AGT-130', { ...f130, severity: 'high' });
   }
   return Array.from(found.values());
 };
