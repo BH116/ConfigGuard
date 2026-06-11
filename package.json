@@ -1,0 +1,74 @@
+{
+  "name": "configguard",
+  "version": "1.0.0",
+  "description": "AI agent configuration security scanner",
+  "keywords": [
+    "ai-security",
+    "llm",
+    "prompt-injection",
+    "misconfiguration",
+    "owasp-llm"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bh116/configguard.git"
+  },
+  "license": "MIT",
+  "private": true,
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "lib/"
+  ],
+  "packageManager": "pnpm@10.11.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "build:lib": "tsc -p tsconfig.lib.json && tsc -p tsconfig.lib.esm.json",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "next": "16.2.6",
+    "next-themes": "^0.4.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "yaml": "^2.8.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.1.0",
+    "@tailwindcss/postcss": "^4.1.7",
+    "@types/node": "^22.15.18",
+    "@types/react": "^19.1.3",
+    "@types/react-dom": "^19.1.3",
+    "@vitest/coverage-v8": "4.1.8",
+    "eslint": "^9.26.0",
+    "eslint-config-next": "15.3.2",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.5.3",
+    "tailwindcss": "^4.1.7",
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.8"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss@<8.5.10": ">=8.5.10",
+      "ws@<8.20.1": ">=8.20.1"
+    }
+  }
+}

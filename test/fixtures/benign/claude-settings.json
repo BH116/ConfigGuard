@@ -1,0 +1,15 @@
+{
+  "permissions": ["read_code", "write_tests", "run_lint"],
+  "deny": [".env", ".aws", ".ssh", "id_ed25519", "id_ecdsa", "*.pem"],
+  "enableAllProjectMcpServers": false,
+  "csp": "default-src 'self'",
+  "rate_limit": 60,
+  "token_budget": 8000,
+  "tool_timeout_sec": 30,
+  "max_iterations": 10,
+  "audit_log": true,
+  "sanitize_output": true,
+  "disable_image_autoload": true,
+  "requires_approval": true,
+  "source_allowlist": ["https://internal.example"]
+}

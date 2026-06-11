@@ -1,0 +1,14 @@
+model: gpt-4o-2026-01-15
+auto-commits: false
+dirty-commits: false
+yes-always: false
+read:
+  - ./README.md
+  - ./CONTRIBUTING.md
+gitignore: true
+analytics: false
+rate_limit: 60
+token_budget: 8000
+tool_timeout_sec: 30
+sanitize_output: true
+audit_log: true

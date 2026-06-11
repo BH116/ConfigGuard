@@ -1,0 +1,17 @@
+# Cursor Rules
+
+You are a coding assistant scoped to this repository only.
+
+permissions: ["read_code", "write_tests"]
+deny: [".env", ".aws", ".ssh", "*.pem", "id_rsa"]
+
+No outbound network access is configured for this assistant. All work stays
+local to this repository checkout.
+
+rate_limit: 60
+tool_timeout_sec: 30
+max_iterations: 10
+sanitize_output: true
+
+All changes that delete files or modify shared infrastructure require human
+review and requires_approval before they are applied.

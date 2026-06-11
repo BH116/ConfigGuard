@@ -1,0 +1,6 @@
+tools:
+  - name: web_search
+  - name: bash_exec
+  - name: code_interpreter
+rate_limit: unlimited
+max_iterations: -1

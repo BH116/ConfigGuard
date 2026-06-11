@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { parseConfig } from '@/lib/parsers';
+import { runRules, RULE_CATALOG } from '@/lib/rules';
+import { lethalTrifectaCodexAgentsMd } from '@/lib/fixtures/lethal-trifecta-codex-agentsmd';
+import { invisibleUnicodeCodexAgentsMd } from '@/lib/fixtures/invisible-unicode-codex-agentsmd';
+import { overlyBroadClaudeSettings } from '@/lib/fixtures/overly-broad-claude-settings';
+import { untrustedMcp } from '@/lib/fixtures/untrusted-mcp';
+import { dangerousAider } from '@/lib/fixtures/dangerous-aider';
+import { goodBaselineClaude } from '@/lib/fixtures/good-baseline-claude';
+import { untrustedCodexMcp } from '@/lib/fixtures/untrusted-codex-mcp';
+import { goodBaselineCodex } from '@/lib/fixtures/good-baseline-codex';
+import { policyPuppetryCursorRules } from '@/lib/fixtures/policy-puppetry-cursorrules';
+import { indirectInjectionAgentsMd } from '@/lib/fixtures/indirect-injection-agents-md';
+import { naturalLanguageMisconfig } from '@/lib/fixtures/natural-language-misconfig';
+import { runSecretsRules } from '@/lib/rules/secrets';
+import { expectAllExcerptsNonEmpty } from './helpers';
+
+const fixture = (name: string) => readFileSync(join(process.cwd(), 'lib/fixtures', name), 'utf8');
+const run = (s: string, n: string) => {
+  const findings = runRules(parseConfig(s, n));
+  expectAllExcerptsNonEmpty(findings);
+  return findings;
+};
+const ids = (s: string, n: string) => run(s, n).map((f) => f.ruleId);
+
+describe('fixtures expected findings', () => {
+  it('matches existing fixture expectations', () => {
+    expect(ids(lethalTrifectaCodexAgentsMd, 'AGENTS.md')).toContain('AGT-001');
+    expect(ids(invisibleUnicodeCodexAgentsMd, 'AGENTS.md')).toContain('AGT-005');
+    expect(ids(overlyBroadClaudeSettings, '.claude/settings.json')).toEqual(expect.arrayContaining(['AGT-004', 'AGT-006', 'AGT-008']));
+    expect(ids(untrustedMcp, '.cursor/mcp.json')).toContain('AGT-014');
+    expect(ids(untrustedCodexMcp, 'codex-mcp.json')).toContain('AGT-014');
+    expect(ids(dangerousAider, '.aider.conf.yml')).toContain('AGT-012');
+  });
+
+  it('matches new fixture expectations', () => {
+    expect(ids(fixture('runtime-agent-overprivileged.json'), 'runtime-agent-overprivileged.json')).toEqual(expect.arrayContaining(['AGT-023', 'AGT-026', 'AGT-030', 'AGT-034', 'AGT-038', 'AGT-040']));
+    expect(ids(fixture('hooks-rce-claude-settings.json'), '.claude/settings.json')).toEqual(expect.arrayContaining(['AGT-012', 'AGT-082']));
+    expect(ids(policyPuppetryCursorRules, '.cursorrules')).toContain('AGT-046');
+    expect(ids(indirectInjectionAgentsMd, 'AGENTS.md')).toContain('AGT-044');
+    expect(ids(fixture('github-actions-ai-agent.yml'), '.github/workflows/ai.yml')).toContain('AGT-083');
+    expect(ids(fixture('privileged-container-config.yaml'), 'sandbox.yaml')).toEqual(expect.arrayContaining(['AGT-059', 'AGT-060']));
+    expect(ids(fixture('vulnerable-framework-requirements.txt'), 'requirements.txt')).toContain('AGT-064');
+    expect(ids(fixture('base-url-override.env'), 'base-url-override.env')).toContain('AGT-081');
+
+    const nlIds = ids(naturalLanguageMisconfig, 'AGENTS.md');
+    expect(nlIds).toEqual(expect.arrayContaining(['AGT-085', 'AGT-086', 'AGT-087', 'AGT-088', 'AGT-089', 'AGT-090', 'AGT-091', 'AGT-092', 'AGT-093', 'AGT-094', 'AGT-095']));
+
+    const enterpriseIds = ids(fixture('enterprise-overpowered-agent.md'), 'AGENTS.md');
+    expect(enterpriseIds).toEqual(expect.arrayContaining(['AGT-096', 'AGT-097', 'AGT-098', 'AGT-099', 'AGT-100', 'AGT-101', 'AGT-102']));
+
+    const persistenceIds = ids(fixture('advanced-persistence-attack.md'), 'AGENTS.md');
+    expect(persistenceIds).toEqual(expect.arrayContaining(['AGT-103', 'AGT-104', 'AGT-105', 'AGT-106', 'AGT-113']));
+
+    const takeoverIds = ids(fixture('account-takeover-combo.md'), 'AGENTS.md');
+    expect(takeoverIds).toEqual(expect.arrayContaining(['AGT-111', 'AGT-112', 'AGT-113', 'AGT-117', 'AGT-118']));
+    const advancedIds = ids(fixture('advanced-attack-surface.md'), 'AGENTS.md');
+    expect(advancedIds).toEqual(expect.arrayContaining(['AGT-122', 'AGT-123', 'AGT-124', 'AGT-125', 'AGT-126', 'AGT-127', 'AGT-129', 'AGT-130', 'AGT-131', 'AGT-132']));
+
+    const allSecretFindings = runSecretsRules(parseConfig(naturalLanguageMisconfig, 'AGENTS.md'));
+    expectAllExcerptsNonEmpty(allSecretFindings);
+    const secretFindings = allSecretFindings
+      .filter((finding) => finding.ruleId === 'AGT-002')
+      .map((finding) => finding.excerpt ?? '');
+    expect(secretFindings).toEqual(expect.arrayContaining([
+      expect.stringMatching(/AKIA/),
+      expect.stringMatching(/aws_secret_access_key/i),
+      expect.stringMatching(/postgres:\/\//i),
+      expect.stringMatching(/^SG\./),
+      expect.stringMatching(/^AC[a-f0-9]{32}$/i)
+    ]));
+  });
+
+  it('good-baseline-production has no critical/high findings', () => {
+    const production = run(fixture('good-baseline-production.json'), 'good-baseline-production.json');
+    expect(production.filter((f) => f.severity === 'critical' || f.severity === 'high')).toHaveLength(0);
+    expect(run(goodBaselineClaude, '.claude/settings.json').length).toBeGreaterThanOrEqual(0);
+    expect(run(goodBaselineCodex, 'AGENTS.md').length).toBeGreaterThanOrEqual(0);
+  });
+
+  it('expanded fixture set covers catalog breadth', () => {
+    const combined = [
+      lethalTrifectaCodexAgentsMd,
+      invisibleUnicodeCodexAgentsMd,
+      overlyBroadClaudeSettings,
+      untrustedMcp,
+      untrustedCodexMcp,
+      dangerousAider,
+      policyPuppetryCursorRules,
+      indirectInjectionAgentsMd,
+      fixture('runtime-agent-overprivileged.json'),
+      fixture('hooks-rce-claude-settings.json'),
+      fixture('github-actions-ai-agent.yml'),
+      fixture('privileged-container-config.yaml'),
+      fixture('vulnerable-framework-requirements.txt'),
+      fixture('base-url-override.env'),
+      naturalLanguageMisconfig,
+      fixture('enterprise-overpowered-agent.md'),
+      fixture('advanced-persistence-attack.md'),
+      fixture('account-takeover-combo.md'),
+      fixture('advanced-attack-surface.md'),
+      fixture('supply-chain-mcp.md'),
+      fixture('persistence-attack.md'),
+      fixture('model-exfil.md')
+    ].join('\n\n');
+
+    const positives = new Set(ids(combined, 'combo'));
+    expect(RULE_CATALOG).toHaveLength(150);
+    expect(positives.size).toBeGreaterThan(35);
+  });
+
+  it('new rules AGT-135 through AGT-142 fire and suppress correctly', () => {
+    const supplyChainIds = ids(fixture('supply-chain-mcp.md'), 'AGENTS.md');
+    expect(supplyChainIds).toContain('AGT-135');
+    expect(supplyChainIds).toContain('AGT-136');
+    expect(supplyChainIds).toContain('AGT-137');
+
+    const persistenceIds = ids(fixture('persistence-attack.md'), 'AGENTS.md');
+    expect(persistenceIds).toContain('AGT-138');
+    expect(persistenceIds).toContain('AGT-139');
+    expect(persistenceIds).toContain('AGT-140');
+
+    const exfilIds = ids(fixture('model-exfil.md'), 'AGENTS.md');
+    expect(exfilIds).toContain('AGT-141');
+    expect(exfilIds).toContain('AGT-142');
+
+    const safeSupplyIds = ids(fixture('supply-chain-safe.md'), 'AGENTS.md');
+    expect(safeSupplyIds).not.toContain('AGT-135');
+    expect(safeSupplyIds).not.toContain('AGT-136');
+    expect(safeSupplyIds).not.toContain('AGT-137');
+
+    const safePersistenceIds = ids(fixture('persistence-safe.md'), 'AGENTS.md');
+    expect(safePersistenceIds).not.toContain('AGT-138');
+    expect(safePersistenceIds).not.toContain('AGT-139');
+    expect(safePersistenceIds).not.toContain('AGT-140');
+
+    const safeExfilIds = ids(fixture('model-exfil-safe.md'), 'AGENTS.md');
+    expect(safeExfilIds).not.toContain('AGT-141');
+    expect(safeExfilIds).not.toContain('AGT-142');
+  });
+});

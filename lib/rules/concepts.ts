@@ -1,0 +1,533 @@
+/**
+ * Concept-based detection layer.
+ *
+ * Accumulates weak signals into scored findings. Uses tool name
+ * clusters, policy language, data categories, and control absence.
+ *
+ * Add rules here for: multi-signal concept detection.
+ * Not for: single-pattern matches or cross-file combos.
+ */
+import { Finding, ParsedConfig } from './types';
+import { finding } from './helpers';
+
+// Module-level pre-compiled patterns (never reconstructed per call)
+const _TRUST_SUBJECTS = '(?:adjuster|requestor|requester|engineer|employee|manager|user|rep|sales|support|caller|partner|vendor|contact|customer|client|sales\\s+team\\s+member|team\\s+lead|lead|coordinator|nurse|care\\s+coordinator|on.call|clinician|physician|pharmacist|operator|analyst|administrator|auditor|advisor|consultant|sponsor|referring\\s+provider|provider|freelancer|contractor|freelance\\s+contractor|care\\s+provider|security\\s+analyst|analyst)';
+const TRUST_CLAIM_RE_1 = new RegExp(`\\b(if|when)\\b[^.\\n]{0,60}\\b${_TRUST_SUBJECTS}\\b[^.\\n]{0,80}\\b(says?|claims?|states?|indicates?|tells?|describes?|confirms?|requests?|mentions?|asserts?|flags?|marks?|labels?|signals?|reports?|contacts?\\s+us\\s+to\\s+say)\\b`, 'i');
+const TRUST_CLAIM_RE_2 = new RegExp(`\\bbased\\s+on\\s+(?:a|an|the)?\\s*\\b${_TRUST_SUBJECTS}\\b[^.\\n]{0,80}\\b(message|request|statement|claim|word|note|email|slack|description|attestation|flag|mark)\\b`, 'i');
+const TRUST_CLAIM_RE_3 = new RegExp(`\\bif\\s+a?\\s*\\b(\\w+\\s+){0,2}${_TRUST_SUBJECTS}\\b[^.\\n]{0,80}\\bproceed`, 'i');
+const _NUMBER_WORD = /(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|fifty|hundred|\d+\s*hundred)/i;
+const SMALL_COHORT_COUNT_RE = new RegExp(`\\b(?:fewer|less|under|below)\\s+than\\s+${_NUMBER_WORD.source}\\b`, 'i');
+
+/**
+ * Runs the concept-based detection layer, accumulating weak signals (tool name clusters, policy language, data categories, control absence) into scored findings.
+ *
+ * @param parsed - The parsed config to scan.
+ * @returns Findings from multi-signal concept detection.
+ */
+export const runConceptRules = (parsed: ParsedConfig): Finding[] => {
+  const c = parsed.content;
+  const has = (r: RegExp) => r.test(c);
+  const found = new Map<string, Finding>();
+ 
+  const add = (id: string, excerptRegex?: RegExp, severity?: Finding['severity']) => {
+    if (found.has(id)) {
+      if (severity) {
+        const existing = { ...found.get(id)! };
+        existing.severity = severity;
+        found.set(id, existing);
+      }
+      return;
+    }
+    const excerpt = excerptRegex ? c.match(excerptRegex)?.[0] : undefined;
+    const f = { ...finding(id, excerpt) };
+    if (severity) f.severity = severity;
+    found.set(id, f);
+  };
+ 
+  // ============================================================
+  // SUPPRESSOR
+  // ============================================================
+  const hasStrongPrivacyControls =
+    has(/\b(?:pii_redaction|field_allowlist|sanitize_output|sensitive_tables\s*:\s*false|tenant_id|data_retention_days|data_residency)\b/i) &&
+    has(/\b(?:requires_approval|human_oversight|human_approval|kill_switch|output_rails|input_rails)\b/i);
+ 
+  // ============================================================
+  // TRUST PRIMITIVES
+  // ============================================================
+  const trustOnClaimDirect =
+    has(TRUST_CLAIM_RE_1) ||
+    has(TRUST_CLAIM_RE_2) ||
+    has(TRUST_CLAIM_RE_3) ||
+    has(/\b(?:supplier|vendor|partner)\s+representative\s+contacts\s+us\s+to\s+say\b/i) ||
+    has(/\b(?:supplier|vendor|partner)\s+(?:representative\s+)?contacts?\s+us\s+and\s+says?\b/i) ||
+    has(/\b(?:freelancer|contractor)\s+reaches\s+out\s+to\s+(?:update|change|modify)\b/i) ||
+    has(/\b(?:contractor|freelancer|user|customer)\s+acknowledges\s+the\s+update\s+is\s+correct\b/i) ||
+    has(/\bpayment\s+processing\s+proceeds\s+once\s+the\s+(?:contractor|supplier|vendor|freelancer)\s+(?:confirms?|acknowledges?|says?)\b/i);
+ 
+  const selfApproval =
+    has(/(approve\s+(their|his|her)\s+own|approve\s+own\s+changes?|self.approval)/i) ||
+    has(/\b(engineer|employee|user|requestor|requester)\s+(on\s+call\s+)?may\s+approve/i);
+ 
+  const ruleBypass =
+    has(/\b(no\s+other\s+approver|no\s+approver\s+available|no\s+second\s+approval|no\s+separate\s+(approval|change\s+window|review))\b/i) ||
+    has(/\b(without|no)\s+(?:an?\s+)?(?:additional|extra|separate|independent|manual|second)\s+(?:approval|review|verification|change\s+window|sign.off|change\s+advisory\s+board)\b/i) ||
+    has(/\bwithout\s+waiting\s+for\s+a\s+change\s+window\b/i);
+ 
+  const hasAuthoritative =
+    has(/(identity\s+provider|idp|ticketing\s+system|change\s+management|verified\s+(through|by|via)\s+(?:the\s+)?(?:hris|idp|portal)|customer\s+portal|out.of.band|verified\s+owner|hris)/i) ||
+    has(/(verify\s+role|verify\s+identity|verified\s+consent|do\s+not\s+(rely|trust)\s+(on\s+)?(user|requester)\s+claims?)/i);
+ 
+  const trustClaimSignal = trustOnClaimDirect || selfApproval || ruleBypass;
+ 
+  // ============================================================
+  // AGT-133
+  // ============================================================
+  if (trustClaimSignal && !hasAuthoritative) {
+    const hasPrivilegedAction = has(/(impersonat\w*|reset.*(password|login|cred|token)|grant\w*\s+access|provision\s+access|update\w*\s+iam|terraform|deploy|create\w*\s+(user|api.key|service.account|service.token)|update\w*\s+auth.polic|delete\w*\s+resource|modify\w*\s+iam|detach\w*\s+iam|terminate\w*\s+instance|modify\w*\s+security\s+group|update\w*\s+permission|export|send.*external|webhook|sftp)/i);
+    const hasElevatedAction = has(/(schedul|alert.*rout|rout.*alert|external.*share|share.*external|send.*email|forward.*to|deliver.*to)/i);
+    add('AGT-133',
+      /(?:if\s+(?:an?\s+)?\w[\w\s]*?\s+(?:says?|describes?|flags?|claims?|contacts\s+us)|no\s+second\s+approval|may\s+approve)/i,
+      hasPrivilegedAction ? 'critical' : hasElevatedAction ? 'high' : 'medium'
+    );
+  }
+ 
+  // ============================================================
+  // AGT-098
+  // ============================================================
+  const dataCategories: Record<string, RegExp> = {
+    health:       /(medical|health|wellness|diagnosis|treatment|patient|stress|leave\s+record|sentiment\s+score|performance\s+flag|pulse\s+survey|absence|feedback\s+score|manager\s+feedback)/i,
+    financial:    /(billing|payment|invoice|revenue|arr|spend|charge|transaction|financial|tax\s+info|ach|bank|wire|claim\s+(?:amount|cost|decision|denial)|insurance|mortgage|preapproval|commission|cancellation|cost)/i,
+    identity:     /(name|email|phone|contact|address|ssn|customer\s+id|user\s+id|company\s+name|primary\s+contact|account\s+name|buyer\s+profile|customer\s+(?:profile|name)|individual\s+profile|employee\s+id)/i,
+    behavior:     /(usage|engagement|browsing|click|purchase\s+history|nps|churn|cancellation|interaction|behavioral|behaviour|listing\s+activity|browsing\s+behavior|usage\s+history|web\s+analytics|email\s+engagement|interest\s+categor|feature\s+usage|open\s+rate|purchase\s+event|churn\s+signal|feedback\s+form)/i,
+    employment:   /(employee|payroll|salary|bonus|performance\s+review|termination|disciplinary|leave\s+record|department\s+head|manager\s+feedback|absence\s+record|team\s+report|hr)/i,
+    auth:         /(token|cookie|session|credential|password|api.key|auth\s+claim|bearer|oauth)/i,
+    realestate:   /(property\s+listing|buyer|mortgage|listing\s+activity|real\s+estate|property|listing|seller|broker)/i,
+    demographics: /(demographic|age|gender|location\s+data|income|household|geographic\s+location)/i,
+    support:      /(support\s+ticket|ticket\s+count|support\s+data|help\s+desk|incident\s+count)/i,
+  };
+  const presentCategories = Object.values(dataCategories).filter(r => has(r));
+  const hasExternalRecipient = has(/(external|consultant|advisor|third.party|partner|sponsor|outside|customer\s+organization|ad\s+platform|crm\s+webhook|sftp\s+endpoint|claims\s+auditing|policyholder|senior\s+leadership|people\s+analytics|referring\s+physician|care\s+network)/i);
+  const hasExportTool = has(/(export|send_email|send_csv|send_xlsx|send_to|push.*to|webhook|sftp|deliver_to|deliver\s+to|push_to|posted?\s+to|share\s+with)/i);
+  if (presentCategories.length >= 3 && (hasExternalRecipient || hasExportTool) && !hasStrongPrivacyControls) {
+    add('AGT-098', /(?:medical|health|salary|payroll|customer\s+name|primary\s+contact|engagement|purchase|browsing|mortgage|listing|billing|support\s+ticket|churn|usage|pulse\s+survey|absence)/i);
+  }
+ 
+  // ============================================================
+  // AGT-126
+  // ============================================================
+  const noExpirationDirect =
+    has(/\b(?:do\s+not|don.?t|never)\s+expire\b/i) ||
+    has(/\b(?:do\s+not\s+have|don.?t\s+have)\s+automatic\s+expir/i) ||
+    has(/\bremain\s+(?:in\s+effect\s+)?(?:valid|active|open|alive)?\s*(?:permanently|forever|indefinitely)\b/i) ||
+    has(/\bremain\s+in\s+effect\s+permanently\b/i) ||
+    has(/\bremain\s+valid\s+until\s+(?:explicitly|manually)\s+(?:revoked|removed|deactivated)\b/i) ||
+    has(/\bremain\s+in\s+their\s+(?:modified|current|changed)\s+state\s+until\s+manually\b/i) ||
+    has(/\b(?:stay|remain)\s+active\s+until\s+manually\s+(?:disabled|revoked|removed|reviewed)\b/i) ||
+    has(/\b(?:retain|keep|maintain|hold)\b[^.\n]{0,40}(?:access|permission|credential|membership)[^.\n]{0,40}\b(?:until|unless)\s+(?:manually|explicitly)\s+(?:revoked|removed)/i) ||
+    has(/\bno\s+(?:automatic|auto)\s+(?:expiration|expiry|revocation|ttl|timeout)\b/i) ||
+    has(/\b(?:temporary|short.term|time.limited)\b[^.\n]{0,80}\b(?:stay|remain|persist|machine\s+identit|access)/i) ||
+    has(/\b(?:api\s+keys?|tokens?|access|service\s+tokens?)\s+(?:do\s+not\s+(?:have\s+automatic\s+expiry|expire\s+automatically)|never\s+expire|do\s+not\s+expire)\b/i) ||
+    has(/\bexpiration\s+is\s+optional\b/i) ||
+    has(/\bno\s+second\s+approval\b/i) ||
+    has(/\bremain\s+in\s+effect\s+until\s+manually\s+(?:cleared|reviewed|revoked|removed)\b/i) ||
+    has(/\b(?:blocked|revoked|isolated|detached|terminated)\s+.{0,30}\bremain\s+in\s+effect\b/i) ||
+    has(/\b(?:deleted|modified|detached|terminated)\s+(?:\w+\s+){0,6}\b(?:remain|stay|persist)\s+in\s+(?:effect|their)\s+(?:permanently|modified\s+state)\b/i);
+  const bulkGrants =
+    has(/\bbulk\s+(?:grant|provision|access)/i) ||
+    has(/\bbulk\s+(?:resource\s+)?(?:deletion|provisioning|access)\s+(?:is\s+)?allowed\b/i);
+  if (noExpirationDirect || bulkGrants) {
+    add('AGT-126', /(?:permanently|do\s+not\s+expire|do\s+not\s+have\s+automatic\s+expiry|stay\s+active\s+until\s+manually|remain\s+in\s+their\s+modified\s+state|no\s+second\s+approval|bulk\s+(?:grant|deletion|provisioning))/i);
+  }
+ 
+  // ============================================================
+  // AGT-124
+  // ============================================================
+  const iamWriteAction =
+    has(/\b(?:update|modify|attach|change|create|provision|grant|assign|deploy|detach|terminate|revoke|block|isolate)\b[^.\n]{0,40}\b(?:iam|access\s+polic|auth\s+polic|service\s+account|role|terraform|infrastructure|permission\s+(?:boundar|polic)|api\s+key|gateway\s+config|rate\s+limit\s+chang|security\s+group|service\s+token|feature\s+access|acl|vpn|firewall|branch\s+protection|repo\s+access|containment\s+polic)\b/i) ||
+    has(/\b(?:terraform_apply|update_iam|attach_policy|grant_role|create_service_account|update_iam_policies|update_iam_boundaries|update_auth_policies|deploy_gateway_config|create_api_key|detach_iam_role|modify_security_group|deploy_remediation_script|terminate_ec2_instance|update_permission_policy|grant_feature_access|create_service_token|revoke_feature_access|update_acl_rules|revoke_vpn_credentials|isolate_endpoint|deploy_containment_policy|block_ip_address|grant_repo_access|create_deploy_key|update_branch_protection|add_to_org)\b/i);
+  const infraBypass =
+    has(/(?:apply|deploy|update|change|modify|terminate|detach|grant)\b[^.\n]{0,80}(?:directly|immediately|without\s+(?:approval|review|change\s+window|waiting\s+for))/i) ||
+    has(/\b(?:hotfix|urgent|emergency|active\s+incident|active\s+customer\s+integration|bypass\s+ci|skip\s+review)\b[^.\n]{0,80}\b(?:apply|deploy|grant|update|approve|allow|proceed)\b/i) ||
+    has(/\bdo\s+not\s+require\s+(?:a\s+)?(?:separate\s+)?(?:change\s+window|change\s+advisory\s+board\s+review|cab\s+review)\b/i) ||
+    has(/\bwithout\s+waiting\s+for\s+a\s+change\s+window\b/i);
+  if (iamWriteAction && (infraBypass || trustClaimSignal || selfApproval || ruleBypass)) {
+    add('AGT-124', /(?:update_iam|terraform|create_service_account|deploy_gateway|create_api_key|update_iam_boundaries|attach_policy|detach_iam_role|modify_security_group|update_permission_policy|terminate_ec2_instance|deploy_remediation_script)/i);
+  }
+ 
+  // ============================================================
+  // AGT-131
+  // ============================================================
+  const smallCohort =
+    SMALL_COHORT_COUNT_RE.test(c) ||
+    has(/\bsmall\s+(?:teams?|cohorts?|segments?|groups?|slices?|accounts?|sets?)\b/i) ||
+    has(/\b(?:high.value|premium)\s+segments?\s+with\s+(?:under|fewer\s+than)/i);
+  const individualInclusion =
+    has(/\b(?:individual|specific|raw|direct|identifiable|example|per.user|user.level)\s+(?:\w+\s+){0,2}(?:profiles?|accounts?|records?|users?|customers?|companies|usage\s+details?|data|scores?|examples?|details?|contact\s+records?|score\s+breakdowns?|response\s+patterns?|patterns?|transactions?)\b/i) ||
+    has(/\b(?:individual|example|specific)\s+\w+\s+(?:may\s+be\s+|are\s+)?(?:included|exposed|shown|exported|displayed|added)\b/i);
+  const noCohortMin =
+    has(/\bno\s+(?:minimum\s+)?(?:cohort|team\s+size|group\s+size|segment\s+size|threshold|cohort\s+size\s+floor|minimum\s+(?:team|group|cohort)\s+size|group\s+size\s+minimum|privacy\s+impact\s+assessment)\s+(?:threshold\s+)?(?:is\s+)?(?:enforced|required|configured|defined|set|applied|is\s+applied)\b/i) ||
+    has(/\bno\s+(?:cohort\s+size\s+floor|data\s+privacy\s+review|privacy\s+review|group\s+size\s+minimum)\s+is\s+(?:applied|required|enforced)\b/i);
+  const identifiersInExport =
+    has(/\b(?:name|email|phone|contact|company\s+name|primary\s+contact|customer\s+id|user\s+id|account\s+name|role\s+title|employee\s+id)\b/i) &&
+    has(/\b(?:arr|revenue|spend|usage|churn|nps|complaint|cancellation|engagement|browsing|purchase|score|plan|sentiment|stress|performance|leave|wellness|behavioral|feedback|absence|turnover|compensation|loyalty|visit\s+frequency)\b/i);
+  const reidWeakAnonymization =
+    has(/\b(?:role\s+titles?|pseudonym|tokenized|employee\s+ids?|tenure\s+bands?|anonymized\s+ids?).{0,80}(?:may\s+still\s+|still\s+|can\s+still\s+|can\s+often\s+be\s+|often\s+narrow).{0,40}(?:identif|matched\s+to|narrow\s+identification|to\s+(?:one|two|a\s+few))\b/i) ||
+    has(/\b(?:tenure\s+bands?|anonymized\s+labels?|pseudonyms?)\s+within\s+small\s+(?:teams?|groups?|cohorts?)\s+.{0,40}(?:narrow|limit|reduce|identify|identification)\b/i);
+  if ((smallCohort || noCohortMin || reidWeakAnonymization) && (individualInclusion || identifiersInExport)) {
+    add('AGT-131', /(?:fewer\s+than\s+\w+|small\s+(?:teams?|segments?|cohorts?)|under\s+\d+\s+members?|individual\s+(?:profiles?|usage|scores?|contact\s+records?|score\s+breakdowns?)|no\s+(?:minimum|privacy\s+review|cohort\s+size\s+floor))/i);
+  }
+  const analyticsSurface =
+    has(/\b(?:churn\s+analysis|executive\s+churn\s+analysis|mostly\s+aggregated|aggregate\s+(?:dashboard|analytics|report)|retention\s+dashboard|revenue\s+dashboard|generate[_-\s]?dashboard|email[_-\s]?dashboard|read[_-\s]?behavior[_-\s]?events|read[_-\s]?account[_-\s]?directory|read[_-\s]?revenue[_-\s]?history)\b/i);
+  const analyticsIdentifiers =
+    has(/\b(?:representative\s+accounts?|example\s+accounts?|organization\s+name|company\s+name|primary\s+contact|annual\s+spend|activity\s+history|support\s+issues?|churn\s+reason)\b/i);
+  const analyticsSmallGroup =
+    has(/\b(?:narrow\s+customer\s+groups?|no\s+(?:enforced\s+)?minimum\s+(?:audience|cohort|segment)\s+(?:size|threshold)|no\s+cohort\s+minimum)\b/i);
+  if (analyticsSurface && analyticsIdentifiers && analyticsSmallGroup) add('AGT-131', /(?:mostly\s+aggregated|narrow\s+customer\s+groups|representative\s+accounts|no\s+enforced\s+minimum\s+audience\s+size)/i);
+ 
+  // ============================================================
+  // AGT-134
+  // ============================================================
+  const workflowToolPresent = has(/\b(?:save_(?:\w+_)?template|run_(?:\w+_)?template|build_(?:\w+_)?template|create_(?:\w+_)?template|store_(?:\w+_)?template|save_workflow|create_(?:data_sharing_|workflow_)?pipeline|store_workflow|build_segment|build_audience)\b/i);
+  const templateFromUser =
+    has(/\b(?:user|requester|product\s+manager|engineer|partner\s+representative|agent|marketer|analyst|employee|account\s+manager)s?\s+(?:may\s+|can\s+|will\s+)?(?:define|create|build|compose|design|specify)\s+(?:custom\s+|reusable\s+|their\s+own\s+)?(?:report\s+|insight\s+|audience\s+|workflow\s+)?(?:template|workflow|pipeline|automation|integration|segment|audience)/i) ||
+    has(/\buser.defined\s+(?:workflows?|pipelines?|automations?|templates?)/i) ||
+    has(/\bcustom\s+(?:report\s+|insight\s+|workflow\s+)?(?:template|workflow|pipeline)/i) ||
+    has(/\b(?:turn|convert)\s+(?:user\s+)?(?:requests?|input)\s+(?:into|to)\s+(?:reusable|saved)?\s*(?:template|workflow|pipeline|integration)/i);
+  const autoRunFuture =
+    has(/\b(?:template|workflow|pipeline|automation|segment)s?\s+(?:run|execute|trigger|activate|fire|are\s+(?:triggered|run|executed))\s+(?:automatically|on\s+(?:new|incoming|matching|similar|the\s+agreed)|when\s+(?:new|matching|similar))/i) ||
+    has(/\b(?:saved\s+|stored\s+)?templates?\s+(?:can\s+|may\s+|will\s+)?(?:run|execute)\s+automatically\s+(?:when|on|each)/i) ||
+    has(/\b(?:run|execute|trigger|triggered)\s+automatically\s+(?:on\s+|when\s+|whenever\s+)(?:new\s+data|the\s+agreed\s+schedule|matching|similar|new\s+billing|data\s+is\s+ingested)/i) ||
+    has(/\bwhenever\s+new\s+data\s+is\s+ingested\b/i) ||
+    has(/\beach\s+month\s+when\s+new\s+(?:billing|data)\s+(?:becomes\s+available|is\s+available)\b/i) ||
+    has(/\b(?:saved|stored|persisted|reused)\s+(?:and\s+\w+\s+)?(?:automatically|when|on\s+(?:new|matching|similar))/i);
+  const externalEndpointForTemplate =
+    has(/\b(?:webhook|integration|callback|sftp|ad\s+platform\s+api|external\s+endpoint|crm\s+webhook|partner\s+sftp|client\s+portal|slack\s+webhook|dsp\s+api|demand.side\s+platform)\b/i) ||
+    has(/\bdeliver_to_\w+(?:portal|endpoint|webhook|channel)\b/i) ||
+    has(/\bpush_to_\w+(?:slack|webhook|endpoint|channel)\b/i);
+  const noTemplateReview =
+    has(/\bno\s+(?:template\s+|legal\s+|privacy\s+|security\s+)?review\s+(?:gate\s+)?(?:is\s+required|exists|is\s+applied)\b/i) ||
+    has(/\bno\s+(?:legal\s+)?re.review\s+is\s+required\b/i) ||
+    has(/\bdo\s+not\s+need\s+review\b/i);
+  const wfScore =
+    (workflowToolPresent ? 3 : 0) +
+    (templateFromUser ? 3 : 0) +
+    (autoRunFuture ? 3 : 0) +
+    (externalEndpointForTemplate ? 2 : 0) +
+    (noTemplateReview ? 2 : 0);
+  if (wfScore >= 6) {
+    add('AGT-134', /(?:saved?\s+(?:template|workflow|pipeline)|reusable|user.defined|run\s+automatically|triggered\s+automatically|whenever\s+new\s+data|each\s+month\s+when)/i,
+      wfScore >= 10 ? 'critical' : 'high');
+  }
+  const recipeSurface = has(/\b(?:save_automation_recipe|execute_recipe|automation\s+recipe|reusable\s+automation\s+recipe|user['"]s\s+integration\s+request|saved\s+recipes?)\b/i);
+  const recipePersistence = has(/\b(?:saved\s+recipes?\s+may\s+trigger\s+automatically|future\s+matching\s+requests|run\s+automatically\s+later)\b/i);
+  const recipeExternal = has(/\b(?:destination\s+url\s+chosen\s+by\s+the\s+requester|send_to_endpoint|endpoint\s+chosen\s+by\s+the\s+requester)\b/i);
+  const recipeDataOrReview = has(/\b(?:keep\s+all\s+available\s+fields|account\s+and\s+subscription\s+data|no\s+security\s+review\s+before\s+reuse)\b/i);
+  if (recipeSurface && (recipePersistence || recipeExternal) && recipeDataOrReview) add('AGT-134', /(?:reusable\s+automation\s+recipe|saved\s+recipes?\s+may\s+trigger|destination\s+url\s+chosen\s+by\s+the\s+requester)/i, recipePersistence && recipeExternal ? 'critical' : 'high');
+ 
+  // ============================================================
+  // AGT-123
+  // ============================================================
+  const webhookExfil =
+    has(/\b(?:webhook|integration|callback|endpoint|sftp|api)\s+(?:url|endpoint|destination|address)?s?\s+(?:are\s+|is\s+|may\s+be\s+|can\s+be\s+)?(?:specified|provided|defined|configured|given|set)\s+(?:by|in)\s+(?:the\s+)?(?:user|requester|engineer|marketer|analyst|product\s+manager|agent|partner|account\s+manager|campaign\s+manager)\b/i) ||
+    has(/\b(?:specified|configured|provided)\s+by\s+the\s+(?:agent|engineer|marketer|analyst|product\s+manager|requester|user|partner|account\s+manager|campaign\s+manager)\s+(?:creating\s+the\s+template|at\s+runtime|in\s+the\s+template|during\s+template\s+setup)\b/i) ||
+    has(/\bpushed\s+to\s+(?:crm\s+)?webhook\s+urls?\s+specified\b/i) ||
+    has(/\b(?:partner\s+)?sftp\s+endpoints?\s+specified\b/i) ||
+    has(/\bdemand.side\s+platform\s+apis?\s+(?:as\s+)?configured\s+by\s+the\s+(?:campaign\s+manager|marketer|analyst|user)\b/i) ||
+    has(/\bexported?\s+directly\s+to\s+(?:demand.side\s+platform|dsp|ad\s+platform|advertising\s+platform)\s+apis?\s+(?:as\s+)?configured\b/i) ||
+    has(/\b(?:advertising|ad)\s+platform\s+apis?\s+configured\s+by\s+the\s+(?:campaign\s+manager|marketer|analyst|user)\b/i) ||
+    has(/\bclient\s+portal\s+endpoints?\s+configured\s+by\s+the\s+(?:account\s+manager|user|requester)\b/i) ||
+    has(/\bdelivered?\s+to\s+client\s+portal\s+endpoints?\s+configured\b/i) ||
+    has(/\bslack\s+webhook\s+urls?\s+that\s+each\s+(?:product\s+manager|user|pm|manager)\s+configures?\b/i) ||
+    has(/\b(?:results?|outputs?|reports?)\s+(?:are\s+)?pushed\s+to\s+(?:slack\s+)?webhook\s+urls?\s+(?:that|which|configured|specified)/i) ||
+    has(/\b(?:portal|slack|dsp|crm|ad\s+platform)\s+(?:endpoint|url|webhook|api)s?\s+(?:are\s+|that\s+(?:each\s+)?)?\b(?:user|manager|pm|account\s+manager|product\s+manager|campaign\s+manager)\s+(?:configures?|sets?|specifies?|provides?)\b/i) ||
+    has(/\bmedia\s+platform\s+apis?\s+(?:as\s+)?specified\s+by\s+the\s+(?:campaign\s+lead|campaign\s+manager|marketer|user)\b/i) ||
+    has(/\bpartner\s+api\s+endpoints?\s+that\s+each\s+(?:partner\s+success\s+manager|partner|user|manager)\s+(?:registers?|configures?|sets?\s+up)\b/i) ||
+    has(/\bcrm\s+webhook\s+urls?\s+that\s+each\s+(?:csm|customer\s+success\s+manager|user|manager)\s+(?:configures?|sets?|registers?)\b/i) ||
+    has(/\b(?:outputs?|results?|playbook\s+outputs?)\s+(?:are\s+)?(?:pushed|sent)\s+to\s+(?:crm\s+)?webhook\s+urls?\s+that\s+each\s+(?:csm|manager|user)\s+configures?\b/i);
+  if (webhookExfil) {
+    add('AGT-123', /(?:webhook|endpoint|sftp|dsp|ad\s+platform|client\s+portal|slack\s+webhook).{0,60}(?:configured|specified|provided)/i);
+  }
+ 
+  // ============================================================
+  // AGT-099
+  // ============================================================
+  const schedulingTool = has(/\b(?:schedule_(?:\w+_)?(?:task|report|delivery|export)|recurring|weekly\s+report|daily\s+report|monthly\s+report|automated\s+report|scheduled\s+(?:tasks?|reports?))\b/i);
+  const schedulingMutability =
+    has(/\b(?:delivery|destination|recipient|address|webhook|folder|endpoint|template|fields?)\s+(?:may\s+be\s+|can\s+be\s+|are\s+)?(?:edited|changed|updated|modified)\s+(?:later|after|by\s+anyone|mid.agreement)\b/i) ||
+    has(/\b(?:template|schedule|recurring\s+(?:task|report))\s+(?:may\s+|can\s+)?be\s+updated\s+(?:if|when|once)\b/i) ||
+    has(/\b(?:if|when)\s+a?\s*(?:partner|user|requester|engineer)\s+(?:requests|asks\s+for)\s+(?:additional\s+)?(?:fields?|recipients?|destinations?)\b/i);
+  const schedRevalidation =
+    has(/\bdoes\s+not\s+revalidat/i) ||
+    has(/\bdo\s+not\s+re.validate/i) ||
+    has(/\bno\s+(?:legal\s+)?re.review\s+is\s+required\s+for\s+field\s+additions\b/i);
+  const schedInheritsPerms =
+    has(/\b(?:scheduled\s+tasks?|recurring\s+(?:reports?|tasks?))\s+(?:inherit|reuse|carries|retains?)\s+(?:the\s+)?(?:original|requester|initial|user)\b/i) ||
+    has(/\b(?:reuse|inherit)\s+(?:the\s+)?(?:original|requester'?s?|initial)\s+(?:permission|approval|access|authorization)\b/i);
+  if (schedulingTool && (schedulingMutability || schedRevalidation || schedInheritsPerms)) {
+    add('AGT-099', /(?:schedule|recurring|mutable|revalidat|inherit.*permission|do\s+not\s+re.validate)/i);
+  }
+ 
+  // ============================================================
+  // AGT-104
+  // ============================================================
+  const ingestionAction =
+    has(/\b(?:ingest|index|add\s+to\s+(?:the\s+)?(?:index|knowledge\s+base|kb|corpus|search|research\s+index|legal\s+index))\b/i) ||
+    has(/\bingest_\w+\b/i) ||
+    has(/\bupdate_(?:search_index|research_index|legal_index|kb|index)\b/i);
+  const untrustedSource =
+    has(/\b(?:forum\s+discussion|blog\s+post|community\s+contributor|external\s+(?:researcher|article|guide|paper|parties?|counsel)|user.submitted|customer.submitted|client.submitted|appeal|ticket\s+comment|uploaded\s+(?:document|note|file)|opposing\s+counsel|third.party\s+(?:legal\s+)?analysis)\b/i);
+  const futureUseTrusted =
+    has(/\b(?:treated\s+as\s+(?:peer.reviewed|equivalent|equally\s+reliable|reliable|trusted|authoritative)|equivalent\s+to\s+peer.reviewed|considered\s+reliable|equally\s+reliable\s+for\s+generating)\b/i) ||
+    has(/\b(?:available\s+for\s+queries|used\s+as\s+(?:reliable\s+)?background|future\s+(?:queries|users|answers))\b/i) ||
+    has(/\bimmediately\s+available\s+for\s+queries\b/i);
+  const noModeration =
+    has(/\b(?:added\s+directly\s+without\s+(?:moderation|independent\s+verification)|without\s+(?:moderation|review|source\s+(?:verification|review|validation)|independent\s+verification)|no\s+source\s+(?:verification|review|validation)|routine\s+ingestion\s+(?:proceeds?\s+)?(?:without|does\s+not\s+require))\b/i);
+  const kbScore =
+    (ingestionAction ? 3 : 0) +
+    (untrustedSource ? 3 : 0) +
+    (futureUseTrusted ? 3 : 0) +
+    (noModeration ? 2 : 0);
+  if (kbScore >= 6) {
+    add('AGT-104', /(?:ingest|index|forum\s+discussion|blog\s+post|community\s+contributor|client.submitted|opposing\s+counsel|available\s+for\s+queries|without\s+(?:moderation|independent\s+verification))/i);
+  }
+  const kbIngestion =
+    has(/\b(?:collect_case_notes|import_url_reference|refresh_kb_index|answer_from_kb|internal\s+help\s+center|knowledge\s+index|kb\s+index|added\s+to\s+the\s+index)\b/i);
+  const kbSource =
+    has(/\b(?:support\s+cases?|customer\s+screenshots?|pasted\s+chat\s+transcripts?|third[-\s]?party\s+troubleshooting\s+pages?|ticket\s+comments?|external\s+articles?)\b/i);
+  const kbFuture =
+    has(/\b(?:future\s+support\s+reps?.{0,40}rely|may\s+rely\s+on\s+it|answering\s+similar\s+issues|used\s+for\s+later\s+answers)\b/i);
+  const kbNoReview =
+    has(/\b(?:does\s+not\s+need\s+formal\s+review|no\s+formal\s+review|no\s+source\s+validation|no\s+provenance|fast\s+knowledge\s+sharing)\b/i);
+  const kbSafety = has(/\b(?:separate\s+untrusted\s+queue|not\s+used\s+for\s+future\s+answers\s+until|reviewer\s+verifies?\s+source\s+provenance)\b/i);
+  if (!kbSafety && kbIngestion && kbSource && (kbFuture || kbNoReview)) add('AGT-104', /(?:help\s+center|added\s+to\s+the\s+index|future\s+support\s+reps|formal\s+review)/i, kbFuture && kbNoReview ? 'critical' : 'high');
+
+  if (has(/(?:reveal|show|provide|display|inspect).{0,40}(?:complete|full|exact)?.{0,20}(instruction\s+stack|operating\s+instructions|developer\s+notes|tool[-\s]?use\s+policy|routing\s+hints|hidden\s+constraints)/i) && !has(/\b(?:never\s+reveal|must\s+never\s+reveal|high-level\s+capability\s+summary)\b/i)) {
+    add('AGT-125', /(?:complete\s+instruction\s+stack|routing\s+hints|hidden\s+constraints|tool[-\s]?use\s+policy|exact\s+operating\s+instructions)/i);
+  }
+ 
+  // ============================================================
+  // AGT-097
+  // ============================================================
+  const docFromExternal = has(/\b(?:attachment|document|pdf|invoice|email|contract|redline|counterparty(?:\s+attachment|\s+document)?)\b/i);
+  const followsDocContent =
+    has(/\b(?:if|when)\s+(?:an?|the)\s+(?:attachment|document|counterparty(?:\s+attachment)?|email|invoice|pdf)\s+(?:contains?|includes?|specifies?|provides?|says?|indicates?|instructs?)\b/i) ||
+    has(/\b(?:follow|act\s+on|honor|apply|incorporate|use|adopt|implement)\s+(?:the\s+)?(?:instructions?|directives?|content|preferred\s+language|terms?|changes?|positions?|proposals?)\s+(?:from|in|within|inside|contained\s+in)\s+(?:attachments?|documents?|counterparty|emails?)\b/i) ||
+    has(/\b(?:proposed\s+changes?|preferred\s+language)\s+from\s+counterparties?\s+(?:are\s+treated\s+as|may\s+be\s+(?:incorporated|applied|adopted))\b/i) ||
+    has(/\bmay\s+be\s+incorporated\s+into\s+(?:the\s+)?(?:working\s+)?draft\b/i) ||
+    has(/\burls?\s+embedded\s+in\s+(?:counterparty\s+)?documents?\s+may\s+be\s+fetched\b/i) ||
+    has(/\b(?:treated\s+as\s+)?good.faith\s+starting\s+points?\s+(?:and\s+)?applied\b/i);
+  if (docFromExternal && followsDocContent) {
+    add('AGT-097', /(?:if\s+(?:an?\s+)?(?:attachment|document|counterparty)|preferred\s+language|incorporated\s+into|good.faith\s+starting)/i);
+  }
+ 
+  // ============================================================
+  // AGT-101
+  // ============================================================
+  const bankingContext = has(/\b(?:banking|payment|wire|ach|routing|tax\s+(?:info|information)|account\s+(?:number|info)|invoice|vendor\s+(?:account|record|profile)|bank\s+account\s+details?|payment\s+(?:record|update|detail))\b/i);
+  const vendorAttests =
+    has(/\bif\s+(?:a\s+|the\s+)?(?:vendor|partner|supplier|contractor|counterparty|contact|freelancer|freelance\s+contractor)\s+(?:representative\s+)?(?:says?|confirms?|indicates?|states?|requests?|attests?|tells?)\b/i) ||
+    has(/\bif\s+(?:a\s+|the\s+)?(?:vendor|partner|supplier|contractor|counterparty|contact|customer|freelancer)\s+(?:email|message|note|representative|contact)\s+(?:says?|confirms?|indicates?|states?|requests?)\b/i) ||
+    has(/\b(?:supplier|vendor|partner|freelancer|contractor)\s+representative\s+contacts\s+us\s+to\s+say\b/i) ||
+    has(/\b(?:supplier|vendor|partner|freelancer|contractor)\s+(?:representative\s+)?contacts?\s+us\s+and\s+says?\b/i) ||
+    has(/\bonce\s+the\s+(?:supplier|vendor|partner|contractor|freelancer)\s+(?:confirms?|acknowledges?)\b/i) ||
+    has(/\b(?:freelancer|contractor)\s+reaches\s+out\s+to\s+(?:update|change|modify)\b/i) ||
+    has(/\bpayment\s+processing\s+proceeds\s+once\s+the\s+(?:contractor|supplier|vendor|freelancer)\s+(?:confirms?|acknowledges?)\b/i);
+  const updateBasedOnVendorClaim = has(/\b(?:update|set|record|change|modify)[^.\n]{0,60}\b(?:vendor\s+record|banking|payment|ach|account\s+(?:detail|info)|packet|payment\s+record)\b/i);
+  if ((bankingContext && vendorAttests) || (updateBasedOnVendorClaim && vendorAttests)) {
+    add('AGT-101', /(?:bank\s+account\s+details?|payment\s+record|banking|ach|vendor\s+record|packet).{0,80}(?:says?|confirms?|contacts\s+us|changed|update)/i);
+  }
+ 
+  // ============================================================
+  // AGT-130
+  // ============================================================
+  const impersonationTool = has(/\b(?:view_as|act_as|impersonat\w*|session.replay|replay_user_session|reconstruct_user_actions|record_browser_session|capture_network_traffic|customer.equivalent|browse_as|open_as_user|reproduce.as|capture_(?:dom_snapshot|screen_state)|fetch_user_session|view\s+as\s+\w+|switch\s+(?:to\s+)?(?:user|account))\b/i);
+  const credentialReset = has(/\b(?:reset_(?:account_)?credentials?|reset_password|reset_login|reset_customer_login|reset_user_token|password\s+reset|change\s+credentials?|reset\s+(?:customer\s+)?(?:login|password|credentials?|token))\b/i);
+  const supportConsentClaim =
+    has(/\b(?:support\s+(?:rep|engineer|agent|employee|may)?|engineer|team\s+lead)\s+(?:says?|may)\s+(?:the\s+)?(?:customer|user|consented|impersonate)\b/i) ||
+    has(/\b(?:team\s+lead|support)\s+says\s+(?:the\s+)?(?:customer|user)\s+(?:agreed|consented|approved|gave\s+(?:verbal\s+)?consent|gave\s+permission)\b/i) ||
+    has(/\bverbal\s+consent\b/i);
+  const sessionDataExternal = has(/\b(?:session\s+(?:replay|recording|state|bundles?)|screen\s+capture|account\s+(?:state\s+)?details?|token\s+snapshots?)\s+(?:may\s+be\s+|can\s+be\s+|are\s+)?(?:posted|shared|sent|emailed)\b/i);
+  const auditWeak =
+    has(/\b(?:abbreviated|shortened|summarized|truncated|minimal|brief|reduced)\s+(?:session\s+)?(?:summaries|logs|audit\s+entries|audit\s+trail)\s+(?:are\s+)?(?:preferred|required|used)\s+(?:over|instead\s+of)\s+(?:full\s+)?(?:audit\s+logs?|logs)\b/i) ||
+    has(/\baudit\s+logs?\s+(?:may\s+be\s+|are\s+|can\s+be\s+)?(?:shortened|truncated|deleted|removed|cleared|pruned|summarized|abbreviated|reduced)\b/i) ||
+    has(/\b(?:audit|log)\s+(?:trail|entries|records?)\s+(?:may\s+be\s+|are\s+|can\s+be\s+)?(?:shortened|truncated|summarized|abbreviated|reduced|concise)\b/i) ||
+    has(/\b(?:logs?|audit)\s+(?:may\s+be\s+|are\s+|can\s+be\s+)?(?:deleted|removed|cleared)\b/i);
+  if (impersonationTool && (credentialReset || supportConsentClaim || sessionDataExternal || auditWeak)) {
+    const score =
+      (impersonationTool ? 3 : 0) + (credentialReset ? 3 : 0) +
+      (supportConsentClaim ? 2 : 0) + (sessionDataExternal ? 2 : 0) + (auditWeak ? 2 : 0);
+    add('AGT-130',
+      /(?:impersonat\w*|replay_user_session|reconstruct_user_actions|customer.equivalent|reset_(?:password|login|credentials?|user_token)|verbal\s+consent)/i,
+      score >= 8 ? 'critical' : 'high'
+    );
+  }
+ 
+  // ============================================================
+  // AGT-113
+  // ============================================================
+  if (auditWeak) {
+    add('AGT-113', /(?:audit\s+logs?\s+(?:may\s+be\s+)?(?:shortened|truncated|deleted|summarized)|abbreviated\s+(?:session\s+)?summaries)/i);
+  }
+ 
+  // ============================================================
+  // AGT-132
+  // ============================================================
+  const logsContainSensitive =
+    has(/\b(?:log|bundle|debug|diagnostic|trace|payload|session\s+(?:bundle|recording)|capture\s+log|network\s+trace|har\s+file)s?\s+(?:and\s+token\s+snapshots?\s+)?(?:may\s+(?:include|contain)|include|contain|capture)\s+(?:[\w\s,]*?)(?:authentication\s+(?:tokens?|events?|headers?)|session\s+tokens?|environment\s+variable|cookies?|auth\s+claims?|customer\s+records?|request\s+headers?|raw\s+request\s+payloads?|database\s+rows?|credentials?|secrets?|tokens?|active\s+authentication)\b/i) ||
+    has(/\b(?:full|complete|raw|all|entire)\s+(?:user\s+)?session\s+(?:including|with)\s+.{0,60}(?:authentication\s+tokens?|active\s+(?:auth|token)|dom\s+state|network\s+calls?)\b/i) ||
+    has(/\b(?:full|complete|raw|all|entire)\s+(?:request\s+)?context\s+(?:into|in)\s+(?:debug\s+)?(?:bundles?|logs?)\b/i) ||
+    has(/\bsession\s+bundles?\s+and\s+token\s+snapshots?\b/i) ||
+    has(/\btoken\s+snapshots?\s+(?:may\s+be\s+|are\s+|can\s+be\s+)?(?:posted|shared|sent)\b/i) ||
+    has(/\bsession\s+recordings?\s+may\s+include\s+.{0,60}(?:cookies?|authentication\s+headers?|session\s+tokens?|network\s+requests?)\b/i) ||
+    has(/\b(?:environment\s+variable\s+snapshots?|auth(?:entication)?\s+headers?|session\s+tokens?|request\s+(?:headers?|payloads?)|database\s+rows?|credentials?)\s+(?:may\s+be\s+|are\s+|can\s+be\s+)?(?:included|captured|bundled|added)\s+(?:in|into)\s+(?:diagnostic\s+bundles?|debug\s+bundles?|log\s+bundles?|bundles?|logs?)\b/i);
+  const logsExternalSink =
+    has(/\b(?:upload|send|forward|export|deliver|push)\s+(?:logs?|bundles?|debug)\b/i) ||
+    has(/\b(?:s3|bucket|external\s+(?:monitoring|endpoint|observability))\s+(?:paths?|endpoints?)?\s+(?:specified|provided|configured)\s+by\s+(?:the\s+)?(?:engineer|user|requester|developer|incident)\b/i) ||
+    has(/\b(?:bundles?|logs?|snapshots?)\s+(?:are\s+|may\s+be\s+|can\s+be\s+)?(?:uploaded|sent|exported|posted)\s+to\b/i) ||
+    has(/\bposted\s+to\s+(?:the\s+)?(?:engineering\s+)?(?:slack|teams?|chat|channel|workspace)\b/i) ||
+    has(/\b(?:session\s+bundles?|token\s+snapshots?)\s+(?:may\s+be\s+|are\s+)?(?:posted|shared|sent)\s+to\b/i);
+  const noLogRedaction =
+    has(/\bno\s+(?:separate\s+)?redaction\s+(?:is\s+)?(?:applied|required|configured)\b/i) ||
+    has(/\b(?:full\s+context|raw\s+context|complete\s+context)\s+is\s+needed\b/i) ||
+    has(/\bdetailed\s+session\s+logs?\s+are\s+preferred\b/i) ||
+    has(/\b(?:abbreviated|shortened|brief|minimal)\s+(?:capture\s+|session\s+|har\s+)?(?:logs?|traces?|recordings?)\s+are\s+preferred\b/i);
+  if (logsContainSensitive && (logsExternalSink || noLogRedaction)) {
+    add('AGT-132',
+      /(?:debug\s+bundles?|session\s+bundles?|token\s+snapshots?|external\s+(?:monitoring|observability)|no\s+redaction|auth\s+claims?|session\s+tokens?|posted\s+to\s+(?:engineering\s+)?slack)/i,
+      logsContainSensitive && logsExternalSink ? 'critical' : 'high'
+    );
+  }
+ 
+  // ============================================================
+  // AGT-118
+  // ============================================================
+  const readsAuth = has(/\b(?:read\w*_(?:token|oauth|secret|credential|api.key|auth)|session\s+tokens?|auth\s+claims?|read_auth_logs?|read_env|environment\s+variable\s+snapshots?|authentication\s+(?:events?|tokens?))\b/i);
+  const sendsExternal = has(/\b(?:send\w*_(?:email|webhook|http|slack|sms|sftp)|export\w*_(?:csv|xlsx|pdf)|upload_to|post_to|post_to_engineering_slack|external\s+(?:monitoring|endpoint|recipients?|destinations?))\b/i);
+  if (readsAuth && sendsExternal) {
+    add('AGT-118', /(?:token|credential|auth\s+claim|session\s+token|environment\s+variable|authentication\s+token)/i, 'critical');
+  }
+ 
+  // ============================================================
+  // AGT-040
+  // ============================================================
+  const sendsPII = has(/\b(?:send_email|export|emailed|export_csv|export_xlsx|send_to|forward|deliver|fax|fax_to|export_to_ehr|fax_to_specialist)\b/i);
+  const personalData = has(/\b(?:name|email|phone|ssn|medical|patient|diagnosis|treatment|salary|payroll|customer\s+name|primary\s+contact|address)\b/i);
+  const noRedaction = !has(/\b(?:redact|anonymiz|pseudonymi|mask\s+(?:pii|name|email)|no\s+pii|pii\s+(?:redact|removal)|pii_redaction\s*:\s*true)\b/i);
+  if (sendsPII && personalData && noRedaction && !hasStrongPrivacyControls) {
+    add('AGT-040', /(?:name|email|phone|ssn|medical|patient|salary|payroll|customer\s+name|primary\s+contact)/i);
+  }
+ 
+  if (has(/\b(?:aggregate\s+metrics?\s+only|minimum\s+cohort\s+size\s+is\s+\d+|small\s+groups?\s+are\s+suppressed|individual\s+accounts?\s+may\s+never\s+appear|external\s+sharing\s+requires\s+legal\s+and\s+privacy\s+approval)\b/i)) {
+    found.delete('AGT-131');
+  }
+  const safeSupportControls = [
+    /cannot\s+open\s+customer-equivalent\s+sessions?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,120}impersonate\s+users?/i,
+    /cannot\s+open\s+customer-equivalent\s+sessions?[^.\n]{0,160}reset\s+credentials?/i,
+    /cannot\s+impersonate\s+users?/i,
+    /cannot\s+reset\s+credentials?/i,
+    /support\s+access\s+is\s+read-only/i,
+    /consent\s+must\s+be\s+verified\s+through\s+the\s+ticketing\s+system/i,
+    /audit\s+logs?\s+are\s+immutable/i,
+    /(?:full\s+)?session\s+data\s+cannot\s+be\s+posted\s+to\s+chat/i
+  ];
+  // ============================================================
+  // AGT-146: MCP Server Poisoning / Combined Read-Write Sensitive Access
+  // ============================================================
+  const mcpFsAccess = has(/\b(?:read_file|write_file|fs|filesystem|read[^.\n]{0,20}directory|edit[^.\n]{0,20}file)\b/i);
+  const mcpNetAccess = has(/\b(?:fetch|http|send[^.\n]{0,20}request|network|url|webhook|egress)\b/i);
+  const mcpCodeExec = has(/\b(?:exec|shell|run[^.\n]{0,20}code|subprocess|eval|run_python|bash)\b/i);
+  const mcpSingleSurface = has(/\b(?:mcp|server|tool)\b[^.\n]{0,40}\b(?:read|write|exec)\b/i);
+  const mcpHasApprovalGate = has(/\b(?:requires_approval|human_approval|confirmation_required|approval_required|hitl)\b/i);
+  const mcpHasScopeRestriction = has(/\b(?:scope|allowlist|read[.\s-]?only|least[.\s-]?privilege|restricted|sandbox)\b/i);
+  const mcpScore =
+    (mcpFsAccess ? 3 : 0) +
+    (mcpNetAccess ? 3 : 0) +
+    (mcpCodeExec ? 3 : 0) +
+    (mcpSingleSurface ? 2 : 0) +
+    (!mcpHasApprovalGate ? 2 : 0) +
+    (!mcpHasScopeRestriction ? 2 : 0);
+  if (mcpScore >= 8) {
+    add('AGT-146',
+      /\b(?:read_file|write_file|filesystem|fetch|webhook|egress|exec|shell|run_python|subprocess|run[^.\n]{0,20}code|edit[^.\n]{0,20}file)\b/i,
+      'critical');
+  }
+
+  // ============================================================
+  // AGT-147: Tool-Call Authorization Bypass / Scope Escalation on Failure
+  // ============================================================
+  const failureHandling = has(/\b(?:on\s+(?:error|failure|denied|unauthorized|403|401)|if\s+[^.\n]{0,40}(?:fails?|denied|rejected)|when\s+[^.\n]{0,40}(?:error|unauthorized))\b/i);
+  const escalateOnFailure = has(/\b(?:retry\s+[^.\n]{0,40}(?:elevated|admin|broader|higher|escalat)|escalate\s+scope|expand\s+(?:scope|permission)|use\s+(?:admin|root|elevated)\s+(?:credentials|scope)|proceed\s+(?:anyway|regardless)|continue\s+(?:despite|even\s+if))\b/i);
+  const mcpFailClosed = has(/\b(?:fail[.\s-]?closed|deny\s+by\s+default|stop\s+on\s+error|halt|abort)\b/i);
+  const authBypassScore =
+    (failureHandling ? 3 : 0) +
+    (escalateOnFailure ? 4 : 0) +
+    (!mcpFailClosed ? 2 : 0);
+  if (authBypassScore >= 7) {
+    add('AGT-147',
+      /\b(?:retry\s+[^.\n]{0,40}(?:elevated|admin|broader|higher|escalat)|escalate\s+scope|expand\s+(?:scope|permission)|use\s+(?:admin|root|elevated)\s+(?:credentials|scope)|proceed\s+(?:anyway|regardless)|continue\s+(?:despite|even\s+if))\b/i,
+      'high');
+  }
+
+  // ============================================================
+  // AGT-148: Cross-Agent Trust Escalation
+  // ============================================================
+  const multiAgentRole = has(/\b(?:orchestrator|subagent|sub-agent|worker|child\s+agent|delegate|coordinator\s+agent)\b/i);
+  const agentPermLang = has(/\b(?:permission|scope|access|capabilit|tools?)\b/i);
+  const sameOrHigherGrant = has(/\b(?:same\s+(?:scope|permission|access)|inherit[^.\n]{0,40}(?:full|all|same)|equal\s+(?:permission|access)|full\s+(?:scope|access)|higher\s+(?:privilege|scope)|elevated)\b/i);
+  const downscoping = has(/\b(?:downscope|reduced\s+scope|least\s+privilege|narrower|restricted\s+subset|scoped\s+down)\b/i);
+  const crossAgentScore =
+    (multiAgentRole ? 3 : 0) +
+    (agentPermLang ? 2 : 0) +
+    (sameOrHigherGrant ? 3 : 0) +
+    (!downscoping ? 2 : 0);
+  if (crossAgentScore >= 7) {
+    add('AGT-148',
+      /\b(?:same\s+(?:scope|permission|access)|inherit[^.\n]{0,40}(?:full|all|same)|equal\s+(?:permission|access)|full\s+(?:scope|access)|higher\s+(?:privilege|scope)|elevated)\b/i,
+      'high');
+  }
+
+  // ============================================================
+  // AGT-149: Memory Poisoning Surface / Unvalidated Persistence
+  // ============================================================
+  const memoryKeyword = has(/\b(?:memory|remember|persist|learn(?:ed)?|store[^.\n]{0,20}context|long[.\s-]?term)\b/i);
+  const writeStoreSave = has(/\b(?:write|store|save|append|record)\b[^.\n]{0,20}\b(?:file|disk|store|db|database|memory)\b/i);
+  const memValidation = has(/\b(?:validat|sanitiz|verif|review|moderat|approval)\b/i);
+  const memoryScore =
+    (memoryKeyword ? 3 : 0) +
+    (writeStoreSave ? 3 : 0) +
+    (!memValidation ? 3 : 0);
+  if (memoryScore >= 7) {
+    add('AGT-149',
+      /\b(?:memory|remember|persist|long[.\s-]?term)\b|\b(?:write|store|save|append|record)\b[^.\n]{0,20}\b(?:file|disk|store|db|database|memory)\b/i,
+      'high');
+  }
+
+  // ============================================================
+  // AGT-150: RAG Injection Surface / Untrusted Context Into Prompt
+  // ============================================================
+  const ragKeyword = has(/\b(?:rag|retrieval|retriev|context\s+(?:injection|window)|vector\s+(?:store|db)|knowledge\s+base|embedding)\b/i);
+  const ragExternalSource = has(/\b(?:url|web|document|file|user[.\s-](?:supplied|provided)|external\s+(?:content|source|page))\b/i);
+  const ragIntoPrompt = has(/\b(?:system[.\s-]?prompt|inject[^.\n]{0,30}(?:prompt|context)|prepend[^.\n]{0,30}context|add[^.\n]{0,30}to[^.\n]{0,30}(?:prompt|context)|context[^.\n]{0,30}(?:used|fed)[^.\n]{0,30}(?:prompt|model))\b/i);
+  const ragTrustBoundary = has(/\b(?:trust\s+boundary|sanitiz|verif|allowlist|trusted\s+source|provenance|quarantine)\b/i);
+  const ragScore =
+    (ragKeyword ? 3 : 0) +
+    (ragExternalSource ? 3 : 0) +
+    (ragIntoPrompt ? 2 : 0) +
+    (!ragTrustBoundary ? 2 : 0);
+  if (ragScore >= 8) {
+    add('AGT-150',
+      /\b(?:rag|retrieval|retriev|vector\s+(?:store|db)|knowledge\s+base|embedding|external\s+(?:content|source|page)|user[.\s-](?:supplied|provided))\b/i,
+      'critical');
+  }
+
+  const safeSupportControlCount = safeSupportControls.filter((pattern) => has(pattern)).length;
+  if (safeSupportControlCount >= 5) {
+    found.delete('AGT-130');
+    found.delete('AGT-133');
+  } else if (has(/\b(?:read-only\s+scoped?\s+impersonation|verified\s+customer\s+consent|supervisor\s+approval|immutable\s+audit\s+logging|no\s+password\s+resets?|no\s+screenshots?)\b/i)) {
+    const f130 = found.get('AGT-130');
+    if (f130 && f130.severity === 'critical') f130.severity = 'high';
+  }
+  return Array.from(found.values());
+};

@@ -1,0 +1,4 @@
+vector_store: pinecone
+index: shared-knowledge-base
+embedding_model: text-embedding-3-large
+top_k: 8
